@@ -1,2 +1,4 @@
-def main() -> None:
-    print("Hello from ai-template-runner!")
+from .cli import cli
+
+def main():
+    cli()
