@@ -41,3 +41,76 @@ class TestProcessTemplate(TestCase):
         self.assertEqual(template.config.top_p, -1)
 
         self.assertEqual(template.prompt.strip(), 'prompt')
+
+    def test_template_with_invalid_config(self):
+        class FakePath:
+            def read_text(self):
+                return '\n'.join([
+                    'name = 0',
+                    'description = 1',
+                    'temperature = "1.0"',
+                    'top_k = "1"',
+                    'top_p = "-1"',
+                    '+++',
+                    'prompt',
+                ])
+
+        template = process_template(FakePath())
+
+        self.assertEqual(template.config.name, 0)
+        self.assertEqual(template.config.description, 1)
+        self.assertEqual(template.config.temperature, '1.0')
+        self.assertEqual(template.config.top_k, '1')
+        self.assertEqual(template.config.top_p, '-1')
+
+        self.assertEqual(template.prompt.strip(), 'prompt')
+
+    def test_template_with_douple_splits_and_config(self):
+        class FakePath:
+            def read_text(self):
+                return '\n'.join([
+                    'name = "Test"',
+                    'description = "Test Description"',
+                    'temperature = 1.0',
+                    'top_k = 1',
+                    'top_p = -1',
+                    '+++',
+                    '+++',
+                    'prompt',
+                ])
+
+        template = process_template(FakePath())
+
+        self.assertEqual(template.config.name, 'Test')
+        self.assertEqual(template.config.description, 'Test Description')
+        self.assertEqual(template.config.temperature, 1.0)
+        self.assertEqual(template.config.top_k, 1)
+        self.assertEqual(template.config.top_p, -1)
+
+        self.assertEqual(template.prompt, '\n+++\nprompt')
+
+    def test_template_with_empty_string(self):
+        class FakePath:
+            def read_text(self):
+                return ''
+
+        template = process_template(FakePath())
+
+        self.assertEqual(template.prompt, '')
+
+    def test_template_with_double_splits(self):
+        class FakePath:
+            def read_text(self):
+                return '+++\n+++'
+
+        template = process_template(FakePath())
+
+        self.assertEqual(template.prompt, '\n+++')
+
+    def test_template_with_error(self):
+        class FakePath:
+            def read_text(self):
+                raise Exception()
+
+        with self.assertRaises(Exception):
+            process_template(FakePath())
