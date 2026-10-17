@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from src.ai_template_runner.runtime import process_template
+from src.ai_template_runner.processor import process_template
 
 
 class TestProcessTemplate(TestCase):
@@ -8,6 +8,7 @@ class TestProcessTemplate(TestCase):
         class FakePath:
             def read_text(self):
                 return '\n'.join([
+                    '[provider]',
                     'base_url = "http://localhost:8080"',
                     'model = "test-model"',
                     '+++',
@@ -31,6 +32,7 @@ class TestProcessTemplate(TestCase):
         class FakePath:
             def read_text(self):
                 return '\n'.join([
+                    '[provider]',
                     'base_url = "http://localhost:8080"',
                     'model = "test-model"',
                     'temperature = 1.0',
@@ -60,6 +62,7 @@ class TestProcessTemplate(TestCase):
         class FakePath:
             def read_text(self):
                 return '\n'.join([
+                    '[provider]',
                     'base_url = "http://localhost:8080"',
                     'model = "test-model"',
                     'temperature = 1.0',
@@ -86,6 +89,61 @@ class TestProcessTemplate(TestCase):
 
         self.assertEqual(template.user_prompt, '\n+++\nprompt')
 
+    def test_template_with_cmd(self):
+        class FakePath:
+            def read_text(self):
+                return '\n'.join([
+                    '[provider]',
+                    'base_url = "http://localhost:8080"',
+                    'model = "test-model"',
+                    '[cmd]',
+                    'message = "echo test"',
+                    '+++',
+                    'prompt',
+                ])
+
+        template = process_template(FakePath())
+
+        self.assertEqual(template.provider.base_url, 'http://localhost:8080')
+        self.assertEqual(template.provider.model, 'test-model')
+        self.assertEqual(template.cmd.message, 'test')
+
+        self.assertEqual(template.user_prompt, '\nprompt')
+
+    def test_template_empty_provider(self):
+        class FakePath:
+            def read_text(self):
+                return '\n'.join([
+                    '[provider]',
+                    '+++',
+                    'prompt',
+                ])
+
+        with self.assertRaises(ValueError) as err:
+            process_template(FakePath())
+
+        self.assertIn('base_url', str(err.exception))
+        self.assertIn('model', str(err.exception))
+        self.assertIn('required', str(err.exception))
+
+    def test_template_empty_provider_args_required(self):
+        class FakePath:
+            def read_text(self):
+                return '\n'.join([
+                    '[provider]',
+                    'base_url = ""',
+                    'model = ""',
+                    '+++',
+                    'prompt',
+                ])
+
+        with self.assertRaises(ValueError) as err:
+            process_template(FakePath())
+
+        self.assertIn('base_url', str(err.exception))
+        self.assertIn('model', str(err.exception))
+        self.assertIn('required', str(err.exception))
+
     def test_template_no_provider(self):
         class FakePath:
             def read_text(self):
@@ -94,8 +152,12 @@ class TestProcessTemplate(TestCase):
                     'prompt',
                 ])
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(ValueError) as err:
             process_template(FakePath())
+
+        self.assertIn('base_url', str(err.exception))
+        self.assertIn('model', str(err.exception))
+        self.assertIn('required', str(err.exception))
 
     def test_template_with_error(self):
         class FakePath:
