@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
-from .runtime import process_template, process_prompt
+from .processor import process_template, process_prompt
 from .providers import llamacpp
 
 

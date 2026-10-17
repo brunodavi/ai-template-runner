@@ -7,12 +7,12 @@ class Provider:
 
     model: str
 
-    temperature: float | None = None
-    top_p: float | None = None
-    top_k: float | None = None
+    temperature: float = None
+    top_p: float = None
+    top_k: float = None
 
-    max_tokens: int | None = None
-    seed: int | None = None
+    max_tokens: int = None
+    seed: int = None
 
     stop: list[str] = field(default_factory=list)
 

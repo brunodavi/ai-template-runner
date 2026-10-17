@@ -3,6 +3,8 @@ from .provider import Provider
 
 @dataclass
 class Template:
-    provider: Provider
-    user_prompt: str
+    user_prompt: str 
     system_prompt: str = ''
+
+    provider: Provider = None
+    cmd: Command = None
