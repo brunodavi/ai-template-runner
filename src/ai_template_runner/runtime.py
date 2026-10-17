@@ -19,4 +19,4 @@ def process_template(template_path: Path) -> Template:
 def process_prompt(template: Template, question: str) -> str:
     prompt = template.user_prompt.format(question=question)
 
-    return prompt
+    return prompt.strip()

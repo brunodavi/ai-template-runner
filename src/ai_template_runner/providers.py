@@ -18,7 +18,7 @@ def post_json(url, payload):
 def llamacpp(
         provider: Provider,
         user_prompt: str,
-        system_prompt: str,
+        system_prompt: str = '',
     ):
 
     url = provider.base_url
@@ -40,4 +40,4 @@ def llamacpp(
         "stream": False,
     }
 
-    post_json(url, payload)
+    return post_json(url, payload)
