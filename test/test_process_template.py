@@ -4,76 +4,70 @@ from src.ai_template_runner.runtime import process_template
 
 
 class TestProcessTemplate(TestCase):
-    def test_template_with_only_prompt(self):
-        class FakePath:
-            def read_text(self):
-                return 'prompt'
-
-        template = process_template(FakePath())
-
-        self.assertEqual(template.prompt, 'prompt')
-
-        self.assertEqual(template.config.name, None)
-        self.assertEqual(template.config.description, None)
-        self.assertEqual(template.config.temperature, None)
-        self.assertEqual(template.config.top_k, None)
-        self.assertEqual(template.config.top_p, None)
-
-    def test_template_with_config_and_prompt(self):
+    def test_template_with_provider_and_prompt_simple(self):
         class FakePath:
             def read_text(self):
                 return '\n'.join([
-                    'name = "Test"',
-                    'description = "Test Description"',
+                    'base_url = "http://localhost:8080"',
+                    'model = "test-model"',
+                    '+++',
+                    'prompt',
+                ])
+
+        template = process_template(FakePath())
+
+        self.assertEqual(template.provider.base_url, 'http://localhost:8080')
+        self.assertEqual(template.provider.model, 'test-model')
+        self.assertEqual(template.provider.temperature, None)
+        self.assertEqual(template.provider.top_k, None)
+        self.assertEqual(template.provider.top_p, None)
+        self.assertEqual(template.provider.max_tokens, None)
+        self.assertEqual(template.provider.seed, None)
+        self.assertEqual(template.provider.stop, [])
+
+        self.assertEqual(template.user_prompt, '\nprompt')
+
+    def test_template_with_provider_and_prompt_full(self):
+        class FakePath:
+            def read_text(self):
+                return '\n'.join([
+                    'base_url = "http://localhost:8080"',
+                    'model = "test-model"',
                     'temperature = 1.0',
-                    'top_k = 1',
-                    'top_p = -1',
+                    'top_p = 1.0',
+                    'top_k = 1.0',
+                    'max_tokens = 220',
+                    'seed = 42',
+                    'stop = ["."]',
                     '+++',
                     'prompt',
                 ])
 
         template = process_template(FakePath())
 
-        self.assertEqual(template.config.name, 'Test')
-        self.assertEqual(template.config.description, 'Test Description')
-        self.assertEqual(template.config.temperature, 1.0)
-        self.assertEqual(template.config.top_k, 1)
-        self.assertEqual(template.config.top_p, -1)
+        self.assertEqual(template.provider.base_url, 'http://localhost:8080')
+        self.assertEqual(template.provider.model, 'test-model')
+        self.assertEqual(template.provider.temperature, 1.0)
+        self.assertEqual(template.provider.top_k, 1.0)
+        self.assertEqual(template.provider.top_p, 1.0)
+        self.assertEqual(template.provider.max_tokens, 220)
+        self.assertEqual(template.provider.seed, 42)
+        self.assertEqual(template.provider.stop, ['.'])
 
-        self.assertEqual(template.prompt.strip(), 'prompt')
-
-    def test_template_with_invalid_config(self):
-        class FakePath:
-            def read_text(self):
-                return '\n'.join([
-                    'name = 0',
-                    'description = 1',
-                    'temperature = "1.0"',
-                    'top_k = "1"',
-                    'top_p = "-1"',
-                    '+++',
-                    'prompt',
-                ])
-
-        template = process_template(FakePath())
-
-        self.assertEqual(template.config.name, 0)
-        self.assertEqual(template.config.description, 1)
-        self.assertEqual(template.config.temperature, '1.0')
-        self.assertEqual(template.config.top_k, '1')
-        self.assertEqual(template.config.top_p, '-1')
-
-        self.assertEqual(template.prompt.strip(), 'prompt')
+        self.assertEqual(template.user_prompt, '\nprompt')
 
     def test_template_with_douple_splits_and_config(self):
         class FakePath:
             def read_text(self):
                 return '\n'.join([
-                    'name = "Test"',
-                    'description = "Test Description"',
+                    'base_url = "http://localhost:8080"',
+                    'model = "test-model"',
                     'temperature = 1.0',
-                    'top_k = 1',
-                    'top_p = -1',
+                    'top_p = 1.0',
+                    'top_k = 1.0',
+                    'max_tokens = 220',
+                    'seed = 42',
+                    'stop = ["."]',
                     '+++',
                     '+++',
                     'prompt',
@@ -81,31 +75,27 @@ class TestProcessTemplate(TestCase):
 
         template = process_template(FakePath())
 
-        self.assertEqual(template.config.name, 'Test')
-        self.assertEqual(template.config.description, 'Test Description')
-        self.assertEqual(template.config.temperature, 1.0)
-        self.assertEqual(template.config.top_k, 1)
-        self.assertEqual(template.config.top_p, -1)
+        self.assertEqual(template.provider.base_url, 'http://localhost:8080')
+        self.assertEqual(template.provider.model, 'test-model')
+        self.assertEqual(template.provider.temperature, 1.0)
+        self.assertEqual(template.provider.top_k, 1.0)
+        self.assertEqual(template.provider.top_p, 1.0)
+        self.assertEqual(template.provider.max_tokens, 220)
+        self.assertEqual(template.provider.seed, 42)
+        self.assertEqual(template.provider.stop, ['.'])
 
-        self.assertEqual(template.prompt, '\n+++\nprompt')
+        self.assertEqual(template.user_prompt, '\n+++\nprompt')
 
-    def test_template_with_empty_string(self):
+    def test_template_no_provider(self):
         class FakePath:
             def read_text(self):
-                return ''
+                return '\n'.join([
+                    '+++',
+                    'prompt',
+                ])
 
-        template = process_template(FakePath())
-
-        self.assertEqual(template.prompt, '')
-
-    def test_template_with_double_splits(self):
-        class FakePath:
-            def read_text(self):
-                return '+++\n+++'
-
-        template = process_template(FakePath())
-
-        self.assertEqual(template.prompt, '\n+++')
+        with self.assertRaises(Exception):
+            process_template(FakePath())
 
     def test_template_with_error(self):
         class FakePath:
