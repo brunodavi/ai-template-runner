@@ -32,12 +32,19 @@ def llamacpp(
         "temperature": provider.temperature,
         "top_p": provider.top_p,
         "top_k": provider.top_k,
+        "min_p": provider.min_p,
 
         "max_tokens": provider.max_tokens,
         "seed": provider.seed,
         "stop": provider.stop,
 
+        "frequency_penalty": provider.frequency_penalty,
+        "presence_penalty": provider.presence_penalty,
+        "repeat_penalty": provider.repeat_penalty,
+
         "stream": False,
+
+        **provider.extras,
     }
 
     return post_json(url, payload)
