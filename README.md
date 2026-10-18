@@ -2,7 +2,7 @@
 
 AIT is a lightweight CLI for testing local AI models and creating reusable AI workflows with Markdown templates.
 
-Templates combine **TOML configuration** and Markdown prompts in a single file, separated by `+++`. They can also execute terminal commands and inject their output directly into prompts.
+Templates combine **TOML configuration** and Markdown prompts in a single file. The configuration is defined in a ` ```toml ` code block at the beginning of the file, and is parsed and removed from the prompt content. Two ` --- ` separators delimit an optional system prompt; everything after them becomes the user prompt. Templates can also execute terminal commands and inject their output directly into prompts.
 
 ## Installation
 
@@ -25,9 +25,10 @@ Use `-q` or `--quiet` to display only the AI response.
 
 ## Templates
 
-Templates use TOML for configuration and Markdown for prompts. The `[provider]` section configures the API endpoint, model, and generation parameters.
+Templates use TOML for configuration and Markdown for prompts. The configuration is written in a ` ```toml ` code block at the beginning of the file. The `[provider]` section configures the API endpoint, model, and generation parameters.
 
-```markdown
+````markdown
+```toml
 [provider]
 base_url = 'http://localhost:8080/v1/chat/completions'
 model = 'lfm230m'
@@ -48,13 +49,21 @@ repeat_last_n = 64
 
 [cmd]
 message = 'echo hello'
-+++
-Command output: {cmd.message}
-
-Answer the following question concisely: {question}
 ```
 
-The `{question}` placeholder is replaced with the CLI input. The `{cmd.message}` placeholder executes the configured command and inserts its output into the prompt.
+---
+You are a concise assistant. Use the command output as context.
+---
+
+Command output:
+{cmd.message}
+
+Answer the following question concisely: {question}
+````
+
+The TOML block is parsed and removed from the prompt content. The optional system prompt is delimited by two `---` separators; everything after the second separator is the user prompt. When the separators are omitted, the whole content after the configuration block is the user prompt.
+
+The `{question}` placeholder is replaced with the CLI input. The `{cmd.message}` placeholder executes the configured command and inserts its output into the prompt. Placeholders can be used in both the system and user prompts.
 
 The provider supports these generation parameters:
 
