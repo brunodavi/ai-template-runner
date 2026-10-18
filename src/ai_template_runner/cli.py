@@ -1,7 +1,11 @@
 from argparse import ArgumentParser
 from pathlib import Path
 
-from .processor import process_template, process_prompt
+from .processor import (
+    process_template,
+    process_prompt,
+    process_system_prompt,
+)
 from .providers import llamacpp
 
 
@@ -51,12 +55,17 @@ def cli(argv: list[str] = None):
 
         template = process_template(template_path)
         prompt = process_prompt(template, args.question)
+        system_prompt = process_system_prompt(template, args.question)
 
         if not args.quiet:
             print("User:", prompt)
             print()
 
-        response_json = llamacpp(template.provider, prompt)
+        response_json = llamacpp(
+            template.provider,
+            prompt,
+            system_prompt,
+        )
 
         ai_response = (
             response_json["choices"][0]["message"]["content"]
