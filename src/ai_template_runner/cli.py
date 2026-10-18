@@ -57,6 +57,10 @@ def cli(argv: list[str] = None):
         prompt = process_prompt(template, args.question)
         system_prompt = process_system_prompt(template, args.question)
 
+        if not args.quiet and system_prompt:
+            print("System:", system_prompt)
+            print()
+
         if not args.quiet:
             print("User:", prompt)
             print()
