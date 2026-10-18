@@ -1,8 +1,8 @@
 # AI Template Runner
 
-AIT is a lightweight CLI for testing local AI models and creating simple, reusable AI workflows with Markdown templates.
+AIT is a lightweight CLI for testing local AI models and creating reusable AI workflows with Markdown templates.
 
-Templates combine **TOML configuration** and prompt instructions in a single file, separated by `+++`. The configuration is TOML, not YAML.
+Templates combine **TOML configuration** and prompt instructions in a single file, separated by `+++`. They can also execute terminal commands and inject their output directly into prompts.
 
 ## Installation
 
@@ -14,35 +14,33 @@ uv tool install git+https://github.com/brunodavi/ai-template-runner.git
 
 ## Usage
 
-Run a template with an optional question:
-
 ```bash
 ait run examples/template-full.md "What is Python?"
-```
-
-See available commands:
-
-```bash
 ait --help
 ```
 
 ## Templates
 
-Example templates are available in [`examples/`](examples/).
+Templates use TOML for configuration and Markdown for prompts. The `provider` section requires `base_url` and `model`.
 
 ```markdown
+[provider]
 base_url = 'http://localhost:8080/v1/chat/completions'
 model = 'lfm230m'
+
+[cmd]
+message = 'echo hello'
 +++
-Answer the following question concisely:
-{question}
+Command output: {cmd.message}
+
+Answer the following question concisely: {question}
 ```
 
-The TOML section configures the provider and model. The prompt body supports the `{question}` placeholder, replaced with the question supplied through the CLI.
+The `{question}` placeholder is replaced with the CLI input. The `{cmd.message}` placeholder executes `echo hello` and inserts its output (`hello`) directly into the prompt.
+
+See [`examples/`](examples/) for more templates.
 
 ## Development
-
-Clone the repository and install it in editable mode using `uv`:
 
 ```bash
 git clone https://github.com/brunodavi/ai-template-runner.git
@@ -51,9 +49,9 @@ uv sync
 uv pip install -e .
 ```
 
-Editable installation lets you run `ait` directly while developing. Changes to the Python source are available without reinstalling the package each time.
+Editable mode lets you run `ait` directly while developing, with source changes available without reinstalling.
 
-Test your changes with:
+Test your changes:
 
 ```bash
 ait run examples/template-full.md "What is Python?"
@@ -61,4 +59,4 @@ ait run examples/template-full.md "What is Python?"
 
 ## Status
 
-AIT is an early-stage project focused on simple local AI experimentation and lightweight workflows.
+AIT is an early-stage project for local AI experimentation and lightweight, template-driven workflows.
