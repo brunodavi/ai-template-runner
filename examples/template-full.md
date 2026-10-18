@@ -1,3 +1,4 @@
+```toml
 [provider]
 base_url = 'http://localhost:8080/v1/chat/completions'
 model = 'lfm230m'
@@ -22,7 +23,8 @@ repeat_last_n = 64
 mirostat = 0
 mirostat_tau = 5.0
 mirostat_eta = 0.1
-+++
+```
+
 Answer the following question clearly and concisely.
 
 Question: {question}
