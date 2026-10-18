@@ -128,6 +128,38 @@ class TestCli(TestCase):
         self.assertIn('TESTING', output_str)
 
     @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_system(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        output = StringIO()
+
+        template = get_template('template-system')
+        question = 'My Question'
+
+        with redirect_stdout(output):
+            cli(['run', template, question])
+
+        payload = mock_post_json.call_args.args[1]
+        output_str = output.getvalue()
+
+        messages = payload['messages']
+
+        self.assertEqual(messages[0]['role'], 'system')
+        self.assertIn('concise assistant', messages[0]['content'])
+
+        self.assertEqual(messages[1]['role'], 'user')
+        self.assertIn('hello', messages[1]['content'])
+        self.assertNotIn('echo', messages[1]['content'])
+        self.assertIn(question, messages[1]['content'])
+
+        self.assertNotIn('You are a concise assistant', output_str)
+        self.assertIn(question, output_str)
+        self.assertIn('TESTING', output_str)
+
+    @patch('src.ai_template_runner.providers.post_json')
     def test_cli_run_with_template_full(
         self,
         mock_post_json: MagicMock,
