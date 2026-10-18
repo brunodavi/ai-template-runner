@@ -1,0 +1,23 @@
+# AGENTS.md
+
+## Dev commands
+
+- Run all tests: `uv run python -m unittest` (must run from repo root — tests import `src.ai_template_runner...` and `test.helpers`, which only resolve from the root).
+- Run one test: `uv run python -m unittest test.test_process_prompt.TestProcessSystemPrompt.test_system_prompt_with_cmd`
+- Setup after cloning: `uv sync && uv pip install -e .` (makes the `ait` CLI available).
+- Python 3.14 pinned in `.python-version`; use `uv run` (never bare `python`) so the right interpreter and editable install are used.
+
+## Work style
+
+- TDD: for each change, write a failing test first, then implement until it passes.
+
+## Template format (v1.0.0)
+
+- Templates must start with a ` ```toml ` config block; two `---` lines delimit an optional system prompt; the rest is the user prompt.
+- No legacy `+++` support — don't reintroduce it; tests in `test/test_process_template.py` deliberately assert old-format templates are rejected.
+
+## Gotchas
+
+- `examples/*.md` are not just docs: `test/test_cli.py` runs them. Editing an example (or its placeholders) can break tests. `examples/template-system.md` is the only one with a system prompt.
+- `src/ai_template_runner/models/template.py`: `Template(user_prompt, system_prompt='', ...)` — first positional arg is `user_prompt`.
+- Provider config is validated in `processor.py`, not the dataclass: missing `base_url`/`model` raises `ValueError` there.
