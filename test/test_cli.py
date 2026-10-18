@@ -104,4 +104,63 @@ class TestCli(TestCase):
         self.assertIn(question, output_str)
         self.assertIn('TESTING', output_str)
 
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_extras(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
 
+        output = StringIO()
+        template = get_template('template-extras')
+
+        with redirect_stdout(output):
+            cli(['run', template])
+
+        payload = mock_post_json.call_args.args[1]
+        output_str = output.getvalue()
+
+        self.assertEqual(payload['typical_p'], 0.95)
+        self.assertEqual(payload['repeat_last_n'], 64)
+        self.assertEqual(payload['mirostat'], 0)
+
+        self.assertNotIn('{question}', output_str)
+        self.assertIn('TESTING', output_str)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_full(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        output = StringIO()
+        template = get_template('template-full')
+
+        with redirect_stdout(output):
+            cli(['run', template])
+
+        payload = mock_post_json.call_args.args[1]
+
+        expected_fields = {
+            'model',
+            'messages',
+            'temperature',
+            'top_p',
+            'top_k',
+            'min_p',
+            'max_tokens',
+            'stop',
+            'seed',
+            'frequency_penalty',
+            'presence_penalty',
+            'repeat_penalty',
+            'stream',
+            'typical_p',
+            'repeat_last_n',
+            'mirostat',
+            'mirostat_tau',
+            'mirostat_eta',
+        }
+
+        self.assertEqual(set(payload.keys()), expected_fields)

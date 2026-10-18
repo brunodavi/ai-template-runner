@@ -22,9 +22,14 @@ class TestProcessTemplate(TestCase):
         self.assertEqual(template.provider.temperature, None)
         self.assertEqual(template.provider.top_k, None)
         self.assertEqual(template.provider.top_p, None)
+        self.assertEqual(template.provider.min_p, None)
         self.assertEqual(template.provider.max_tokens, None)
         self.assertEqual(template.provider.seed, None)
         self.assertEqual(template.provider.stop, [])
+        self.assertEqual(template.provider.frequency_penalty, None)
+        self.assertEqual(template.provider.presence_penalty, None)
+        self.assertEqual(template.provider.repeat_penalty, None)
+        self.assertEqual(template.provider.extras, {})
 
         self.assertEqual(template.user_prompt, '\nprompt')
 
@@ -36,11 +41,15 @@ class TestProcessTemplate(TestCase):
                     'base_url = "http://localhost:8080"',
                     'model = "test-model"',
                     'temperature = 1.0',
-                    'top_p = 1.0',
-                    'top_k = 1.0',
+                    'top_p = 0.9',
+                    'top_k = 40',
+                    'min_p = 0.05',
                     'max_tokens = 220',
                     'seed = 42',
                     'stop = ["."]',
+                    'frequency_penalty = 0.2',
+                    'presence_penalty = 0.1',
+                    'repeat_penalty = 1.1',
                     '+++',
                     'prompt',
                 ])
@@ -50,11 +59,44 @@ class TestProcessTemplate(TestCase):
         self.assertEqual(template.provider.base_url, 'http://localhost:8080')
         self.assertEqual(template.provider.model, 'test-model')
         self.assertEqual(template.provider.temperature, 1.0)
-        self.assertEqual(template.provider.top_k, 1.0)
-        self.assertEqual(template.provider.top_p, 1.0)
+        self.assertEqual(template.provider.top_k, 40)
+        self.assertEqual(template.provider.top_p, 0.9)
+        self.assertEqual(template.provider.min_p, 0.05)
         self.assertEqual(template.provider.max_tokens, 220)
         self.assertEqual(template.provider.seed, 42)
         self.assertEqual(template.provider.stop, ['.'])
+        self.assertEqual(template.provider.frequency_penalty, 0.2)
+        self.assertEqual(template.provider.presence_penalty, 0.1)
+        self.assertEqual(template.provider.repeat_penalty, 1.1)
+        self.assertEqual(template.provider.extras, {})
+
+        self.assertEqual(template.user_prompt, '\nprompt')
+
+    def test_template_with_provider_extras(self):
+        class FakePath:
+            def read_text(self):
+                return '\n'.join([
+                    '[provider]',
+                    'base_url = "http://localhost:8080"',
+                    'model = "test-model"',
+                    '[provider.extras]',
+                    'typical_p = 0.95',
+                    'repeat_last_n = 64',
+                    'mirostat = 0',
+                    '+++',
+                    'prompt',
+                ])
+
+        template = process_template(FakePath())
+
+        self.assertEqual(
+            template.provider.extras,
+            {
+                'typical_p': 0.95,
+                'repeat_last_n': 64,
+                'mirostat': 0,
+            },
+        )
 
         self.assertEqual(template.user_prompt, '\nprompt')
 
@@ -66,11 +108,15 @@ class TestProcessTemplate(TestCase):
                     'base_url = "http://localhost:8080"',
                     'model = "test-model"',
                     'temperature = 1.0',
-                    'top_p = 1.0',
-                    'top_k = 1.0',
+                    'top_p = 0.9',
+                    'top_k = 40',
+                    'min_p = 0.05',
                     'max_tokens = 220',
                     'seed = 42',
                     'stop = ["."]',
+                    'frequency_penalty = 0.2',
+                    'presence_penalty = 0.1',
+                    'repeat_penalty = 1.1',
                     '+++',
                     '+++',
                     'prompt',
@@ -81,11 +127,16 @@ class TestProcessTemplate(TestCase):
         self.assertEqual(template.provider.base_url, 'http://localhost:8080')
         self.assertEqual(template.provider.model, 'test-model')
         self.assertEqual(template.provider.temperature, 1.0)
-        self.assertEqual(template.provider.top_k, 1.0)
-        self.assertEqual(template.provider.top_p, 1.0)
+        self.assertEqual(template.provider.top_k, 40)
+        self.assertEqual(template.provider.top_p, 0.9)
+        self.assertEqual(template.provider.min_p, 0.05)
         self.assertEqual(template.provider.max_tokens, 220)
         self.assertEqual(template.provider.seed, 42)
         self.assertEqual(template.provider.stop, ['.'])
+        self.assertEqual(template.provider.frequency_penalty, 0.2)
+        self.assertEqual(template.provider.presence_penalty, 0.1)
+        self.assertEqual(template.provider.repeat_penalty, 1.1)
+        self.assertEqual(template.provider.extras, {})
 
         self.assertEqual(template.user_prompt, '\n+++\nprompt')
 
@@ -106,6 +157,7 @@ class TestProcessTemplate(TestCase):
 
         self.assertEqual(template.provider.base_url, 'http://localhost:8080')
         self.assertEqual(template.provider.model, 'test-model')
+        self.assertEqual(template.provider.extras, {})
         self.assertEqual(template.cmd.message, 'test')
 
         self.assertEqual(template.user_prompt, '\nprompt')
