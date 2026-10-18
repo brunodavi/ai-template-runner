@@ -155,7 +155,7 @@ class TestCli(TestCase):
         self.assertNotIn('echo', messages[1]['content'])
         self.assertIn(question, messages[1]['content'])
 
-        self.assertNotIn('You are a concise assistant', output_str)
+        self.assertIn('You are a concise assistant', output_str)
         self.assertIn(question, output_str)
         self.assertIn('TESTING', output_str)
 
