@@ -35,18 +35,34 @@ def cli(argv: list[str] = None):
         default="",
     )
 
+    run.add_argument(
+        "-q", "--quiet",
+        action="store_true",
+        help="Show only the AI response",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "run":
         template_path: Path = args.template_path
 
-        print(f"Running template: {template_path.name}\n")
+        if not args.quiet:
+            print(f"Running template: {template_path.name}\n")
 
         template = process_template(template_path)
         prompt = process_prompt(template, args.question)
 
-        print("User:", prompt)
-        print()
+        if not args.quiet:
+            print("User:", prompt)
+            print()
 
-        result = llamacpp(template.provider, prompt)
-        print("AI:", result["choices"][0]["message"]["content"])
+        response_json = llamacpp(template.provider, prompt)
+
+        ai_response = (
+            response_json["choices"][0]["message"]["content"]
+        )
+
+        if args.quiet:
+            print(ai_response)
+        else:
+            print("AI:", ai_response)
