@@ -1,5 +1,8 @@
 ```toml
 extends = '../../conventional-commits.md'
+
+[test]
+type = 'test'
 ```
 
 Git status:
