@@ -87,7 +87,28 @@ temperature = 0.2
 
 The `extends` path is resolved relative to the template file itself, so [`examples/features/`](examples/features/) templates use `extends = '../base.md'`. Child values win per key; nested tables such as `[provider.extras]` and `[cmd]` are merged key by key. Empty child prompts fall back to the parent prompts, which lets a template reuse only the parent prompts and configuration.
 
-See [`examples/base.md`](examples/base.md) for the shared base used by the examples. See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md).
+A template can validate its own output with a `[test]` table and the `--test` flag:
+
+```toml
+[test]
+type = 'feat'                              # JSON output field equality
+message = 'add health check endpoint'      # exact value comparison
+"user.name" = 'Alice'                      # nested JSON path (quoted dotted key)
+
+text = 'exact raw output'                  # exact raw text comparison
+text_contains = ['GET_health']             # every fragment present in the raw text
+text_regex = '^\{'                         # regex search on the raw text
+```
+
+Run with validation:
+
+```bash
+ait run examples/simulation/conventional-commits/feat.md --test
+```
+
+PASS/FAIL lines go to stderr (stdout stays clean for pipes) and the exit code is 1 when any check fails. Missing JSON fields and invalid JSON output fail instead of raising. The `[test]` table participates in `extends` inheritance like the other config tables.
+
+See [`examples/base.md`](examples/base.md) for the shared base used by the examples. See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md). See [`examples/simulation/`](examples/simulation/) for simulations that run task templates against fixed fixtures.
 
 ## Development
 

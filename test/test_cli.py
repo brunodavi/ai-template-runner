@@ -1,6 +1,6 @@
 from unittest import TestCase
 from unittest.mock import patch, MagicMock
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 from io import StringIO
 from pathlib import Path
 
@@ -197,3 +197,85 @@ class TestCli(TestCase):
 
         self.assertEqual(set(payload.keys()), expected_fields)
 
+
+
+class TestCliRunWithTests(TestCase):
+    def write_template(self, *lines: str) -> str:
+        from tempfile import TemporaryDirectory
+
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+
+        path = Path(tmp.name) / 'template.md'
+        path.write_text('\n'.join(lines))
+        return str(path)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_passing_checks_reported_on_stderr(self, mock_post_json: MagicMock):
+        mock_post_json.return_value = make_post_json('{"type": "feat"}')
+
+        template = self.write_template(
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '[test]',
+            'type = "feat"',
+            '```',
+            'prompt',
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            cli(['run', template, '--test'])
+
+        self.assertIn('PASS type', stderr.getvalue())
+        self.assertIn('{"type": "feat"}', stdout.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_failing_checks_exit_with_code_1(self, mock_post_json: MagicMock):
+        mock_post_json.return_value = make_post_json('TESTING')
+
+        template = self.write_template(
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '[test]',
+            'type = "feat"',
+            '```',
+            'prompt',
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as err:
+                cli(['run', template, '--test'])
+
+        self.assertEqual(err.exception.code, 1)
+        self.assertIn('FAIL type', stderr.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_template_without_test_table_passes_silently(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json('TESTING')
+
+        template = self.write_template(
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '```',
+            'prompt',
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            cli(['run', template, '--test'])
+
+        self.assertEqual(stderr.getvalue(), '')

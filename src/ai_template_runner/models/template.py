@@ -8,3 +8,4 @@ class Template:
 
     provider: Provider = None
     cmd: Command = None
+    test: dict = field(default_factory=dict)

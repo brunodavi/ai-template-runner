@@ -337,6 +337,27 @@ class TestProcessTemplate(TestCase):
             process_template(FakePath())
 
 
+    def test_template_with_test_table(self):
+        template = process_template(FakePath([
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '[test]',
+            'type = "feat"',
+            'text_contains = ["feat"]',
+            '```',
+            '',
+            'prompt',
+        ]))
+
+        self.assertEqual(template.test, {
+            'type': 'feat',
+            'text_contains': ['feat'],
+        })
+        self.assertEqual(template.user_prompt, 'prompt')
+
+
 class TestProcessTemplateExtends(TestCase):
     def setUp(self):
         tmp = TemporaryDirectory()

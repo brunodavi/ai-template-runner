@@ -89,13 +89,14 @@ def merge_configs(parent: dict, child: dict) -> dict:
 def load_template(
     template_path: Path,
     _extends_stack: frozenset[Path] = frozenset(),
-) -> tuple[dict, dict, str, str]:
+) -> tuple[dict, dict, dict, str, str]:
     """Load a template file and resolve its `extends` chain.
 
-    Returns (provider config, cmd config, system prompt, user prompt).
-    The `extends` path is resolved relative to the template file
-    itself; parent provider/cmd configs are merged per key and parent
-    prompts are used wherever the child prompts are empty.
+    Returns (provider config, cmd config, test config, system prompt,
+    user prompt). The `extends` path is resolved relative to the
+    template file itself; parent provider/cmd/test configs are merged
+    per key and parent prompts are used wherever the child prompts
+    are empty.
     """
     template_str = template_path.read_text()
 
@@ -106,6 +107,7 @@ def load_template(
 
     provider = dict(config.get('provider', {}))
     cmd = dict(config.get('cmd', {}))
+    test = dict(config.get('test', {}))
 
     system_prompt, user_prompt = split_prompts(content)
 
@@ -129,20 +131,23 @@ def load_template(
             _extends_stack | {parent_resolved},
         )
 
-        parent_provider, parent_cmd, parent_system, parent_user = parent
+        parent_provider, parent_cmd, parent_test, parent_system, parent_user = (
+            parent
+        )
 
         provider = merge_configs(parent_provider, provider)
         cmd = merge_configs(parent_cmd, cmd)
+        test = merge_configs(parent_test, test)
 
         system_prompt = system_prompt or parent_system
         user_prompt = user_prompt or parent_user
 
-    return provider, cmd, system_prompt, user_prompt
+    return provider, cmd, test, system_prompt, user_prompt
 
 
 def process_template(template_path: Path) -> Template:
-    provider_config, cmd_config, system_prompt, user_prompt = load_template(
-        template_path,
+    provider_config, cmd_config, test_config, system_prompt, user_prompt = (
+        load_template(template_path)
     )
 
     if not provider_config.get('base_url') or not provider_config.get('model'):
@@ -155,6 +160,7 @@ def process_template(template_path: Path) -> Template:
         system_prompt=system_prompt,
         provider=Provider(**provider_config),
         cmd=Command(**cmd_config),
+        test=test_config,
     )
 
 

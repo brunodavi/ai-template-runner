@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
 from pathlib import Path
+import sys
 
 from .processor import (
     process_template,
@@ -7,6 +8,7 @@ from .processor import (
     process_system_prompt,
 )
 from .providers import llamacpp
+from .checks import run_checks
 
 
 def cli(argv: list[str] = None):
@@ -45,6 +47,12 @@ def cli(argv: list[str] = None):
         help="Show only the AI response",
     )
 
+    run.add_argument(
+        "-t", "--test",
+        action="store_true",
+        help="Validate the AI response against the [test] table",
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "run":
@@ -79,3 +87,15 @@ def cli(argv: list[str] = None):
             print(ai_response)
         else:
             print("AI:", ai_response)
+
+        if args.test:
+            failed = False
+
+            for result in run_checks(template.test, ai_response):
+                status = 'PASS' if result.passed else 'FAIL'
+                line = f'{status} {result.name}' + (f': {result.detail}' if result.detail else '')
+                print(line, file=sys.stderr)
+                failed = failed or not result.passed
+
+            if failed:
+                raise SystemExit(1)
