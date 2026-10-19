@@ -196,3 +196,4 @@ class TestCli(TestCase):
         }
 
         self.assertEqual(set(payload.keys()), expected_fields)
+

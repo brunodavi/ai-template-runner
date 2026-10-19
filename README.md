@@ -76,7 +76,18 @@ The provider supports these generation parameters:
 
 `base_url` and `model` are required. Parameter support depends on the API and model server being used.
 
-See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md).
+A template can inherit configuration, commands, and prompts from another template with a top-level `extends` key placed before any TOML table:
+
+```toml
+extends = 'base.md'
+
+[provider]
+temperature = 0.2
+```
+
+The `extends` path is resolved relative to the template file itself, so [`examples/features/`](examples/features/) templates use `extends = '../base.md'`. Child values win per key; nested tables such as `[provider.extras]` and `[cmd]` are merged key by key. Empty child prompts fall back to the parent prompts, which lets a template reuse only the parent prompts and configuration.
+
+See [`examples/base.md`](examples/base.md) for the shared base used by the examples. See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md).
 
 ## Development
 

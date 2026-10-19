@@ -9,6 +9,8 @@ TOML_FENCE = '```toml'
 FENCE_END = '```'
 SYSTEM_SEPARATOR = '---'
 
+EXTENDS_KEY = 'extends'
+
 
 def extract_toml_block(template_str: str) -> tuple[str, str]:
     """Extract the TOML configuration block from the template.
@@ -69,31 +71,91 @@ def split_prompts(content: str) -> tuple[str, str]:
     return system_prompt.strip(), user_prompt.strip()
 
 
-def process_template(template_path: Path) -> Template:
+def merge_configs(parent: dict, child: dict) -> dict:
+    """Merge two TOML config dicts, child values win.
+
+    Nested tables (e.g. [provider.extras] or [cmd]) are merged
+    per additional table level, so child tables inherit parent keys.
+    """
+    merged = dict(parent)
+    for key, value in child.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_configs(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def load_template(
+    template_path: Path,
+    _extends_stack: frozenset[Path] = frozenset(),
+) -> tuple[dict, dict, str, str]:
+    """Load a template file and resolve its `extends` chain.
+
+    Returns (provider config, cmd config, system prompt, user prompt).
+    The `extends` path is resolved relative to the template file
+    itself; parent provider/cmd configs are merged per key and parent
+    prompts are used wherever the child prompts are empty.
+    """
     template_str = template_path.read_text()
 
     toml_str, content = extract_toml_block(template_str)
 
     config = loads(toml_str)
+    extends = config.pop(EXTENDS_KEY, None)
 
-    provider = config.get('provider', {})
-    cmd = config.get('cmd', {})
+    provider = dict(config.get('provider', {}))
+    cmd = dict(config.get('cmd', {}))
 
-    if not provider.get('base_url') or not provider.get('model'):
+    system_prompt, user_prompt = split_prompts(content)
+
+    if extends:
+        parent_path = template_path.parent / extends
+
+        if not parent_path.is_file():
+            raise ValueError(
+                f"Template 'extends' file not found: {extends}"
+            )
+
+        parent_resolved = parent_path.resolve()
+
+        if parent_resolved in _extends_stack:
+            raise ValueError(
+                f"circular 'extends' in template chain: {extends}"
+            )
+
+        parent = load_template(
+            parent_path,
+            _extends_stack | {parent_resolved},
+        )
+
+        parent_provider, parent_cmd, parent_system, parent_user = parent
+
+        provider = merge_configs(parent_provider, provider)
+        cmd = merge_configs(parent_cmd, cmd)
+
+        system_prompt = system_prompt or parent_system
+        user_prompt = user_prompt or parent_user
+
+    return provider, cmd, system_prompt, user_prompt
+
+
+def process_template(template_path: Path) -> Template:
+    provider_config, cmd_config, system_prompt, user_prompt = load_template(
+        template_path,
+    )
+
+    if not provider_config.get('base_url') or not provider_config.get('model'):
         raise ValueError(
              "Provider 'base_url' and 'model' are required"
         )
 
-    system_prompt, user_prompt = split_prompts(content)
-
-    template = Template(
+    return Template(
         user_prompt,
         system_prompt=system_prompt,
-        provider=Provider(**provider),
-        cmd=Command(**cmd),
+        provider=Provider(**provider_config),
+        cmd=Command(**cmd_config),
     )
-
-    return template
 
 
 def interpolate(text: str, template: Template, question: str | None) -> str:

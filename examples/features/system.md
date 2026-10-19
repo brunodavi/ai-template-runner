@@ -1,7 +1,7 @@
 ```toml
+extends = '../base.md'
+
 [provider]
-base_url = 'http://localhost:8080/v1/chat/completions'
-model = 'lfm230m'
 temperature = 0.2
 max_tokens = 120
 

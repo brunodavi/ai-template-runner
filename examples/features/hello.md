@@ -1,7 +1,5 @@
 ```toml
-[provider]
-base_url = 'http://localhost:8080/v1/chat/completions'
-model = 'lfm230m'
+extends = '../base.md'
 ```
 
 Hello

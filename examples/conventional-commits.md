@@ -1,9 +1,10 @@
 ```toml
-[provider]
-base_url = 'http://localhost:8080/v1/chat/completions'
-model = 'gemma3-1b-q5'
+extends = 'base.md'
 
+[provider]
+model = 'qwen3-0.8b'
 temperature = 0
+max_tokens = 100
 
 [provider.extras]
 response_format = { type = "json_object" }
@@ -15,15 +16,23 @@ unstaged = "git diff"
 ```
 
 ---
-Generate a Conventional Commit type and message based on the Git status, diffs, and untracked file paths provided. Use the available information to understand the changes without assuming behavior that is not shown. Choose one type from `feat`, `fix`, `docs`, `style`, `refactor`, `test`, or `chore`. Write a short, imperative commit message in English, without the type prefix. Return only a valid JSON object containing exactly the keys `type` and `message`.
+Classify the Git changes and generate a Conventional Commit message.
 
-Example:
-```json
-{{
-  "type": "docs",
-  "message": "add installation instructions to README"
-}}
-```
+Type guide:
+- feat: adds new behavior, endpoint, option or capability
+- fix: repairs a bug or handles an error case
+- docs: changes only Markdown or documentation content
+- style: code formatting only (spaces, indentation), no behavior change
+- refactor: neither fixes a bug nor adds a feature (renames, moves, cleanups)
+- test: adds or changes tests only
+- chore: build config, .gitignore, dependencies, tooling
+
+Write a short, imperative commit message in English, without any prefix. Return only a JSON object with exactly the keys `type` and `message`.
+
+Examples:
+{{"type": "feat", "message": "add health check endpoint"}} -> for new endpoints or functions
+{{"type": "fix", "message": "handle missing argument"}} -> for try/except or error handling
+{{"type": "style", "message": "remove extra spaces"}} -> formatting only
 ---
 
 Git status:

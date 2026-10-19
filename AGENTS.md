@@ -19,5 +19,7 @@
 ## Gotchas
 
 - `examples/features/*.md` are not just docs: `test/test_cli.py` runs them. Editing an example (or its placeholders) can break tests. `examples/features/system.md` is the only one with a system prompt. Task templates live directly in `examples/` (e.g. `email-subject.md`, `conventional-commits.md`) and are not used by tests.
+- Templates may declare `extends = '<path>'` as the first TOML key; the path is resolved relative to the template file (e.g. `../base.md` from `examples/features/`). Parent provider/cmd configs merge per key and empty child prompts inherit parent prompts — so a child can override just the user prompt. Literal `{`/`}` in prompts (JSON examples) must be doubled to `{{`/`}}` because both prompts go through `str.format`.
 - `src/ai_template_runner/models/template.py`: `Template(user_prompt, system_prompt='', ...)` — first positional arg is `user_prompt`.
 - Provider config is validated in `processor.py`, not the dataclass: missing `base_url`/`model` raises `ValueError` there.
+- `examples/simulation/` contains live simulations of task templates (e.g. `conventional-commits/*.md` extends the task with pre-filled git fixtures; only the user prompt is local) — keep fixtures brace-escaped (`{` → `{{`).
