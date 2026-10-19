@@ -15,8 +15,8 @@ uv tool install git+https://github.com/brunodavi/ai-template-runner.git
 ## Usage
 
 ```bash
-ait run examples/template-full.md "What is Python?"
-ait run examples/template-full.md "What is Python?" --quiet
+ait run examples/features/full.md "What is Python?"
+ait run examples/features/full.md "What is Python?" --quiet
 ait --help
 ait run --help
 ```
@@ -76,7 +76,7 @@ The provider supports these generation parameters:
 
 `base_url` and `model` are required. Parameter support depends on the API and model server being used.
 
-See [`examples/`](examples/) for more templates.
+See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md).
 
 ## Development
 
@@ -92,7 +92,7 @@ Editable installation (`-e .`) lets you run `ait` directly while developing, so 
 Run a template to test your changes:
 
 ```bash
-ait run examples/template-full.md "What is Python?"
+ait run examples/features/full.md "What is Python?"
 ```
 
 Run the test suite:

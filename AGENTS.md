@@ -18,6 +18,6 @@
 
 ## Gotchas
 
-- `examples/*.md` are not just docs: `test/test_cli.py` runs them. Editing an example (or its placeholders) can break tests. `examples/template-system.md` is the only one with a system prompt.
+- `examples/features/*.md` are not just docs: `test/test_cli.py` runs them. Editing an example (or its placeholders) can break tests. `examples/features/system.md` is the only one with a system prompt. Task templates live directly in `examples/` (e.g. `email-subject.md`, `conventional-commits.md`) and are not used by tests.
 - `src/ai_template_runner/models/template.py`: `Template(user_prompt, system_prompt='', ...)` — first positional arg is `user_prompt`.
 - Provider config is validated in `processor.py`, not the dataclass: missing `base_url`/`model` raises `ValueError` there.
