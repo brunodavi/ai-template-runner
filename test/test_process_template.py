@@ -357,6 +357,45 @@ class TestProcessTemplate(TestCase):
         })
         self.assertEqual(template.user_prompt, 'prompt')
 
+    def test_template_without_out_table(self):
+        template = process_template(FakePath([
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '```',
+            '',
+            'prompt',
+        ]))
+
+        self.assertEqual(template.out, {})
+
+    def test_template_with_out_table(self):
+        template = process_template(FakePath([
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '[out]',
+            "text = '{out.type}: {out.message}'",
+            '[[out.strip]]',
+            '[[out.replace]]',
+            "old = 'GET_health'",
+            "new = 'GET'",
+            '```',
+            '',
+            'prompt',
+        ]))
+
+        self.assertEqual(template.out, {
+            'text': '{out.type}: {out.message}',
+            'steps': [
+                ('strip', {}),
+                ('replace', {'old': 'GET_health', 'new': 'GET'}),
+            ],
+        })
+        self.assertEqual(template.user_prompt, 'prompt')
+
 
 class TestProcessTemplateExtends(TestCase):
     def setUp(self):
@@ -608,3 +647,30 @@ class TestProcessTemplateExtends(TestCase):
             process_template(child)
 
         self.assertIn('circular', str(err.exception).lower())
+
+    def test_child_inherits_out_text_and_replaces_steps(self):
+        self.write('base.md',
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '[out]',
+            "text = '{out.type}: {out.message}'",
+            '[[out.upper]]',
+            '```',
+            'base prompt',
+        )
+        child = self.write('child.md',
+            '```toml',
+            'extends = "base.md"',
+            '[[out.strip]]',
+            '```',
+            'child prompt',
+        )
+
+        template = process_template(child)
+
+        self.assertEqual(template.out, {
+            'text': '{out.type}: {out.message}',
+            'steps': [('strip', {})],
+        })

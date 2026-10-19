@@ -51,6 +51,11 @@ def build_out(raw_out: dict | None) -> dict:
     if not raw_out:
         return {}
 
+    built = {}
+
+    if raw_out.get(TEXT_KEY):
+        built[TEXT_KEY] = raw_out[TEXT_KEY]
+
     steps = []
     for key, entries in raw_out.items():
         if key == TEXT_KEY:
@@ -59,10 +64,10 @@ def build_out(raw_out: dict | None) -> dict:
         for entry in entries:
             steps.append((method, dict(entry)))
 
-    return {
-        TEXT_KEY: raw_out.get(TEXT_KEY, ''),
-        STEPS_KEY: steps,
-    }
+    if steps:
+        built[STEPS_KEY] = steps
+
+    return built
 
 
 def _positional_by_signature(method, args: dict, name: str) -> list:

@@ -258,6 +258,37 @@ class TestCliRunWithTests(TestCase):
         self.assertIn('FAIL type', stderr.getvalue())
 
     @patch('src.ai_template_runner.providers.post_json')
+    def test_out_renders_display_but_test_checks_raw(self, mock_post_json: MagicMock):
+        mock_post_json.return_value = make_post_json(
+            '{"type": "feat", "message": "add endpoint"}',
+        )
+
+        template = self.write_template(
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '[out]',
+            "text = '{out.type}: {out.message}'",
+            '[[out.upper]]',
+            '[test]',
+            'type = "feat"',
+            '```',
+            'prompt',
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            cli(['run', template, '--test'])
+
+        stdout_str = stdout.getvalue()
+
+        self.assertIn('FEAT: ADD ENDPOINT', stdout_str)
+        self.assertNotIn('"message"', stdout_str)
+        self.assertIn('PASS type', stderr.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
     def test_template_without_test_table_passes_silently(
         self,
         mock_post_json: MagicMock,

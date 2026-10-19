@@ -9,6 +9,7 @@ from .processor import (
 )
 from .providers import llamacpp
 from .checks import run_checks
+from .output import render_out
 
 
 def cli(argv: list[str] = None):
@@ -83,10 +84,12 @@ def cli(argv: list[str] = None):
             response_json["choices"][0]["message"]["content"]
         )
 
+        rendered = render_out(template.out, ai_response)
+
         if args.quiet:
-            print(ai_response)
+            print(rendered)
         else:
-            print("AI:", ai_response)
+            print("AI:", rendered)
 
         if args.test:
             failed = False

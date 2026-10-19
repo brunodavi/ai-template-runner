@@ -46,10 +46,12 @@ class TestBuildOut(TestCase):
     def test_text_only(self):
         built = build_out({'text': '{out.type}: {out.message}'})
 
-        self.assertEqual(built, {
-            'text': '{out.type}: {out.message}',
-            'steps': [],
-        })
+        self.assertEqual(built, {'text': '{out.type}: {out.message}'})
+
+    def test_steps_only(self):
+        built = build_out({'strip-1': [{}]})
+
+        self.assertEqual(built, {'steps': [('strip', {})]})
 
     def test_steps_recovered_in_document_order_from_numbered_keys(self):
         raw = loads(number_out_headers(
