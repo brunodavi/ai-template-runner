@@ -61,7 +61,7 @@ def run_checks(test_config: dict, text: str) -> list[CheckResult]:
         got = _json_get(parsed, key)
         passed = got == expected
         detail = '' if passed else (
-            f'{key}: expected {_quoted(expected)}, got {_quoted(got)}'
+            f'expected {_quoted(expected)}, got {_quoted(got)}'
         )
         results.append(CheckResult(key, passed, detail))
 

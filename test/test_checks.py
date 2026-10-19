@@ -48,8 +48,9 @@ class TestRunChecks(TestCase):
         )
 
         [result] = results
-        self.assertFalse(result.passed)
-        self.assertIn('type', result.detail)
+        self.assertEqual(result.name, 'type')
+        self.assertIn("expected 'feat'", result.detail)
+        self.assertIn('got None', result.detail)
 
     def test_invalid_json_fails_every_json_check(self):
         results = run_checks(
@@ -125,5 +126,14 @@ class TestRunChecks(TestCase):
         results = run_checks({'type': 'feat'}, '{"type": "fix"}')
 
         [result] = results
+        self.assertEqual(result.name, 'type')
         self.assertIn("expected 'feat'", result.detail)
         self.assertIn("got 'fix'", result.detail)
+
+    def test_detail_does_not_repeat_the_field_name(self):
+        results = run_checks({'type': 'feat'}, '{"type": "fix"}')
+
+        [result] = results
+        # the field name belongs to the check itself (FAIL type: ...),
+        # not to the detail text
+        self.assertNotIn('type: expected', result.detail)
