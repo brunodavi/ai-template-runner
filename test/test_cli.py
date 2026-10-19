@@ -22,7 +22,7 @@ def make_post_json(content: str = 'TESTING'):
     }
 
 def get_template(name: str) -> str:
-    return str(ROOT / 'examples' / f'{name}.md')
+    return str(ROOT / 'examples' / 'features' / f'{name}.md')
 
 class TestCli(TestCase):
     @patch('src.ai_template_runner.providers.post_json')
@@ -34,7 +34,7 @@ class TestCli(TestCase):
 
         output = StringIO()
 
-        template = get_template('template-hello')
+        template = get_template('hello')
 
         with redirect_stdout(output):
             cli(['run', template])
@@ -53,7 +53,7 @@ class TestCli(TestCase):
 
         output = StringIO()
 
-        template = get_template('template-hello')
+        template = get_template('hello')
 
         with redirect_stdout(output):
             cli(['run', template, '-q'])
@@ -71,7 +71,7 @@ class TestCli(TestCase):
 
         output = StringIO()
 
-        template = get_template('template-simple')
+        template = get_template('simple')
         question = 'My Question'
 
         with redirect_stdout(output):
@@ -91,7 +91,7 @@ class TestCli(TestCase):
 
         output = StringIO()
 
-        template = get_template('template-command')
+        template = get_template('command')
         question = 'My Question'
 
         with redirect_stdout(output):
@@ -112,7 +112,7 @@ class TestCli(TestCase):
         mock_post_json.return_value = make_post_json()
 
         output = StringIO()
-        template = get_template('template-extras')
+        template = get_template('extras')
 
         with redirect_stdout(output):
             cli(['run', template])
@@ -136,7 +136,7 @@ class TestCli(TestCase):
 
         output = StringIO()
 
-        template = get_template('template-system')
+        template = get_template('system')
         question = 'My Question'
 
         with redirect_stdout(output):
@@ -167,7 +167,7 @@ class TestCli(TestCase):
         mock_post_json.return_value = make_post_json()
 
         output = StringIO()
-        template = get_template('template-full')
+        template = get_template('full')
 
         with redirect_stdout(output):
             cli(['run', template])
