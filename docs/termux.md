@@ -14,7 +14,7 @@ with zero runtime dependencies — no compiler, no toolchain:
 
 ```sh
 pkg update
-pkg install python python-pip
+pkg install python
 pip install ai-template-runner
 ait --help
 ```
