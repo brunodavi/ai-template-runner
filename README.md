@@ -187,7 +187,8 @@ The same inline transforms work on every interpolated value in the prompts — `
 See [`examples/base.md`](examples/base.md) for the shared base used by the examples, [`examples/features/`](examples/features/) for one example per feature, [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md), and [`examples/simulation/`](examples/simulation/) for simulations that run task templates against fixed fixtures.
 
 For deeper material, read [`docs/architecture.md`](docs/architecture.md) (why the code is
-shaped the way it is), [`docs/termux.md`](docs/termux.md) (running local models on a phone)
+shaped the way it is), [`docs/termux.md`](docs/termux.md) (running local models on a phone),
+[`docs/benchmarks.md`](docs/benchmarks.md) (what small models can and cannot do)
 and [`docs/maintenance.md`](docs/maintenance.md) (release routine for maintainers).
 
 ## Development

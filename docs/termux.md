@@ -33,8 +33,29 @@ Termux ships llama.cpp itself, so there is nothing to compile:
 
 ```sh
 pkg install llama-cpp
-llama-server --hf unsloth/Qwen3-0.6B-GGUF --port 8080
+llama-server --hf unsloth/Qwen3-0.6B-GGUF --port 8080 --threads 2
 ```
+
+### Keep the phone usable: limit the threads
+
+By default llama.cpp spawns a thread per (physical) CPU core. On a phone that
+is aggressive: Android pauses your whole UI while the CPU is pegged, the
+device cooks, and the battery plummets. **Start with 1–2 threads and grow from
+there:**
+
+```sh
+llama-server --hf MODEL --port 8080 --threads 1   # safest start
+llama-server --hf MODEL --port 8080 --threads 2   # still responsive
+```
+
+If your phone is stronger, raise `--threads` gradually — one step at a time,
+watching whether the UI stays fluid and the device stays cool. A few extra
+percent of tok/s is never worth a frozen phone; if the device ramps down mid
+prompt (thermal throttle), your effective speed is *lower* anyway.
+
+The models this tool targets are small (0.3B–2B). Inference of a ~300-token
+answer at 2 threads over a 6-core phone stays in the seconds range — see the
+reference numbers in [`docs/benchmarks.md`](benchmarks.md).
 
 `pkg search llama` also lists:
 
