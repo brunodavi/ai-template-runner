@@ -76,6 +76,16 @@ The models this tool targets are small (0.3B–2B). Inference of a ~300-token
 answer on the profile above stays in the seconds range — see the reference
 numbers in [`docs/benchmarks.md`](benchmarks.md).
 
+To run the built-in hardware benchmark, check that the package ships the tool:
+
+```sh
+command -v llama-bench
+```
+
+If it is there, follow the [`llama-bench` recipe](benchmarks.md#the-hardware-benchmark-built-into-llamacpp).
+If the packager skipped that binary, the standard source build (below)
+produces it at `build/bin/llama-bench`.
+
 ### Alternative installs
 
 `pkg search llama` also lists:
