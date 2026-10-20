@@ -108,6 +108,32 @@ ait run examples/simulation/conventional-commits/feat.md --test
 
 PASS/FAIL lines go to stderr (stdout stays clean for pipes) and the exit code is 1 when any check fails. Missing JSON fields and invalid JSON output fail instead of raising. The `[test]` table participates in `extends` inheritance like the other config tables.
 
+A template can also render its own display output with an `[out]` table. The `text` key is a render template formatted with the parsed JSON fields (`{out.type}`, `{out.message}`, ...); missing fields render as empty:
+
+```toml
+[out]
+text = '{out.type}: {out.message}'
+```
+
+Transforms run in two channels that never share the field namespace (`out.count` is always the JSON field, never `str.count`):
+
+```toml
+[out]
+text = '{out.message:strip} | {out.message:replace:GET:SET} | {out.message[:4]}'
+
+[[out.upper]]                               # one step: str.upper() with no args
+
+[[out.replace]]                             # named args match the real str signature
+old = 'GET_health'
+new = 'GET'
+
+[[out.slice]]                               # helper: builtin slice(start, end)
+start = 1
+end = 10
+```
+
+The `[[out.<method>]]` tables run in real document order (one table = one step, an empty table means no arguments) and apply to the rendered `text` — or to the raw response when there is no `text`. Steps are real `str` methods, with named arguments mapped positionally by the real signature. The inline spec is a single step from `method:arg1:arg2` (argument values may not contain ':'), and `{out.field[1:]}` follows pythonic slice syntax. Without `[out]` (or an empty table) the raw AI response is printed. The `[out]` config participates in `extends` inheritance per key: the child `text` and step lists replace the parent's.
+
 See [`examples/base.md`](examples/base.md) for the shared base used by the examples. See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md). See [`examples/simulation/`](examples/simulation/) for simulations that run task templates against fixed fixtures.
 
 ## Development

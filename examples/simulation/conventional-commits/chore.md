@@ -1,6 +1,9 @@
 ```toml
 extends = '../../conventional-commits.md'
 
+[out]
+text = '{out.type}: {out.message}'
+
 [test]
 type = 'chore'
 ```
