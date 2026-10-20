@@ -39,10 +39,9 @@ jobs:
       - name: Build distribution
         run: uv build
 
-      - name: Resolve the audit inputs
-        run: echo "AUDIT_INPUTS=$(ls dist/ai_template_runner-*.whl)" >> "$GITHUB_ENV"
-
-      - name: Security audit of the built wheel
-        uses: pypa/gh-action-pip-audit@v1.1.0
-        with:
-          inputs: ${{ env.AUDIT_INPUTS }}
+      - name: Security audit the built distribution
+        run: |
+          wheel=$(ls dist/ai_template_runner-*.whl)
+          ver=$(basename "$wheel" | sed 's/ai_template_runner-\([^-]*\)-.*/\1/')
+          printf 'ai-template-runner==%s\n' "$ver" > /tmp/audit.txt
+          uvx pip-audit --no-deps --disable-pip -r /tmp/audit.txt
