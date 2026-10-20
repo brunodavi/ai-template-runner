@@ -2,15 +2,7 @@
 
 Small local models are cheap and fast — they also lose structure the moment a prompt gets long. `ait` turns that weakness into a workflow: each template is a single Markdown file that gathers context, prompts the model, validates the answer and renders the result. Deterministic scaffolding around a dumb-but-fast model, even one running on your phone.
 
-```
-┌ template file ─────────────────────────────────┐
-│ ```toml  →  model, endpoint, sampling          │
-│ ```                                            │
-│ ---    →  system prompt                        │
-│ user prompt:  {cmd.version} output + question  │
-│ [test] / [out] →  validate + render output     │
-└────────────────────────────────────────────────┘
-```
+A template is one file with a TOML section (model, endpoint, sampling), an optional system prompt, the user prompt (with `{cmd.*}` command output and `{question}` input slots), and optional `[test]` / `[out]` tables to validate and render the answer.
 
 One file, one command, one predictable answer — no agent framework needed.
 

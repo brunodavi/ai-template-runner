@@ -5,6 +5,22 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-10-20
+
+### Added
+
+- Contributor documentation: Termux guide overhauled (direct `pip install`, packaged `llama-cpp` via `pkg`, the phone-safe `llama-server` profile with capped threads/context, `llama-bench` recipe), architecture decisions doc and maintainer release routine doc.
+- Reference benchmark documentation in `docs/benchmarks.md`: the behavioral capacity ranking of small models plus the hardware curve measured with `llama-bench` on the reference phone, standardized on llama.cpp model identities.
+- Runtime floor lowered support matrix: tests now run on Python 3.12, 3.13 and 3.14 in CI (requires-python `>=3.12` shipped in 1.5.0 was already validated).
+
+### Fixed
+
+- CI: the `pip-audit` action failed to bootstrap because uv-managed venvs do not ship `pip`; CI now installs `pip` into the environment before the security audit step.
+
+### Changed
+
+- `AGENTS.md` synced with the new distribution and benchmark workflow rules (TDD exception for `tmp/` utilities, CHANGELOG/tag contract, benchmark data flow).
+
 ## [1.5.0] - 2026-10-20
 
 ### Added
