@@ -11,6 +11,8 @@
 
 - TDD: for each change, write a failing test first, then implement until it passes.
 - Conventional Commits for every commit: `type: imperative subject` (e.g. `feat: add [out] engine`, `fix: ...`, `docs: ...`, `chore: ...`, `test: ...`, `refactor: ...`). Version bumps are `chore` commits; the examples task template `examples/conventional-commits.md` documents the same convention.
+- Before pushing a version tag: bump `version` in `pyproject.toml` AND refresh `uv.lock` (run `uv sync` so the lock reflects the new version) — a stale `uv.lock` on a vendored tag is broken packaging.
+- At the end of a change, commit in parts, in this order: `feat` first, then `test`, `docs`, and finally `chore` (e.g. version bump) — each part gets its own Conventional Commit.
 
 ## Template format (v1.0.0)
 
