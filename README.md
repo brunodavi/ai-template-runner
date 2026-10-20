@@ -1,31 +1,77 @@
 # AI Template Runner
 
-AIT is a lightweight CLI for testing local AI models and creating reusable AI workflows with Markdown templates.
+Small local models are cheap and fast — they also lose structure the moment a prompt gets long. `ait` turns that weakness into a workflow: each template is a single Markdown file that gathers context, prompts the model, validates the answer and renders the result. Deterministic scaffolding around a dumb-but-fast model, even one running on your phone.
 
-Templates combine **TOML configuration** and Markdown prompts in a single file. The configuration is defined in a ` ```toml ` code block at the beginning of the file, and is parsed and removed from the prompt content. Two ` --- ` separators delimit an optional system prompt; everything after them becomes the user prompt. Templates can also execute terminal commands and inject their output directly into prompts.
+```
+┌ template file ─────────────────────────────────┐
+│ ```toml  →  model, endpoint, sampling          │
+│ ```                                            │
+│ ---    →  system prompt                        │
+│ user prompt:  {cmd.version} output + question  │
+│ [test] / [out] →  validate + render output     │
+└────────────────────────────────────────────────┘
+```
+
+One file, one command, one predictable answer — no agent framework needed.
+
+**Why it matters:** a small model cannot keep a workflow in its head, but it can fill in a well-shaped slot. Templates put the workflow in the file so the model only has to do the part it is good at. Failures become visible and reproducible through `[test]`, instead of vague "the model is dumb" sessions.
+
+## Quick start
+
+Point `ait` at any OpenAI-compatible chat endpoint (llama.cpp server, Ollama, LM Studio, ...):
+
+1. Start a model server, e.g. llama.cpp:
+
+```bash
+llama-server -hf unsloth/Qwen3-0.6B-GGUF --port 8080
+```
+
+2. Run a ready template:
+
+```bash
+uvx ai-template-runner run TEMPLATE "What is Python?"
+```
+
+Or clone the repository and try it against a fixture without a model at
+all — the `examples/simulation/` templates run against fixed
+responses, so you can feel the `[test]`/`[out]` mechanics in seconds:
+
+```bash
+git clone https://github.com/brunodavi/ai-template-runner.git
+cd ai-template-runner
+uvx ai-template-runner run examples/simulation/conventional-commits/feat.md --test
+```
+
+Running on a phone? See [`docs/termux.md`](docs/termux.md).
 
 ## Installation
 
-Install directly from GitHub using [uv](https://docs.astral.sh/uv/):
+| Command | When to use |
+| --- | --- |
+| `uvx ai-template-runner --help` | zero-install trial from [PyPI](https://pypi.org/project/ai-template-runner/) |
+| `pipx install ai-template-runner` | persistent install, any platform (Termux ships pipx) |
+| `pip install ai-template-runner` | any pip environment |
+| `uv tool install ai-template-runner` | [uv](https://docs.astral.sh/uv/) managed installs |
+| `uv tool install git+https://github.com/brunodavi/ai-template-runner.git` | latest `master` |
 
-```bash
-uv tool install git+https://github.com/brunodavi/ai-template-runner.git
-```
+Requires Python 3.12+. The CLI is `ait` (or `ai-template-runner`); the package has **zero runtime dependencies**.
 
 ## Usage
 
 ```bash
 ait run examples/features/full.md "What is Python?"
 ait run examples/features/full.md "What is Python?" --quiet
+ait run examples/simulation/conventional-commits/feat.md --test
 ait --help
 ait run --help
 ```
 
-Use `-q` or `--quiet` to display only the AI response.
+- `-q` / `--quiet`: display only the AI response (stdout stays clean for pipes).
+- `-t` / `--test`: validate the response against the template's `[test]` table. PASS/FAIL lines go to stderr and the exit code is 1 when any check fails.
 
 ## Templates
 
-Templates use TOML for configuration and Markdown for prompts. The configuration is written in a ` ```toml ` code block at the beginning of the file. The `[provider]` section configures the API endpoint, model, and generation parameters.
+Templates combine **TOML configuration** and Markdown prompts in a single file. The configuration is defined in a ` ```toml ` code block at the beginning of the file, and is parsed and removed from the prompt content. Two ` --- ` separators delimit an optional system prompt; everything after them becomes the user prompt. Templates can also execute terminal commands and inject their output directly into prompts.
 
 ````markdown
 ```toml
@@ -136,7 +182,13 @@ The `[[out.<method>]]` tables run in real document order (one table = one step, 
 
 The same inline transforms work on every interpolated value in the prompts — `{question:strip}`, `{question[:80]:lower}` and `{cmd.message:upper}`, `{cmd.status[1:20]}` — since the value stays lazy for `{cmd.*}` (the command only runs when a field is actually used).
 
-See [`examples/base.md`](examples/base.md) for the shared base used by the examples. See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md). See [`examples/simulation/`](examples/simulation/) for simulations that run task templates against fixed fixtures.
+## Examples and docs
+
+See [`examples/base.md`](examples/base.md) for the shared base used by the examples, [`examples/features/`](examples/features/) for one example per feature, [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md), and [`examples/simulation/`](examples/simulation/) for simulations that run task templates against fixed fixtures.
+
+For deeper material, read [`docs/architecture.md`](docs/architecture.md) (why the code is
+shaped the way it is), [`docs/termux.md`](docs/termux.md) (running local models on a phone)
+and [`docs/maintenance.md`](docs/maintenance.md) (release routine for maintainers).
 
 ## Development
 
@@ -155,12 +207,16 @@ Run a template to test your changes:
 ait run examples/features/full.md "What is Python?"
 ```
 
-Run the test suite:
+Run the test suite (from the repository root):
 
 ```bash
-python -m unittest
+uv run python -m unittest
 ```
+
+Contributions are welcome — CI runs the suite on Python 3.12, 3.13 and 3.14, so that is the floor.
 
 ## Status
 
-AIT is an early-stage project for local AI experimentation and lightweight, template-driven workflows.
+AIT is in active development for local AI experimentation and lightweight, template-driven workflows. Expect the template syntax to be stable and everything around it to keep evolving. See [`CHANGELOG.md`](CHANGELOG.md) for release history.
+
+Licensed under the [MIT license](LICENSE).
