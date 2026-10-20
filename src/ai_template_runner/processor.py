@@ -4,7 +4,7 @@ from tomllib import loads
 from .models.template import Template
 from .models.provider import Provider
 from .command import Command
-from .output import build_out, number_out_headers
+from .output import build_out, number_out_headers, Smart
 
 TOML_FENCE = '```toml'
 FENCE_END = '```'
@@ -170,7 +170,7 @@ def process_template(template_path: Path) -> Template:
 
 def interpolate(text: str, template: Template, question: str | None) -> str:
     return text.format(
-        question=question,
+        question=Smart(question) if isinstance(question, str) else question,
         cmd=template.cmd,
     ).strip()
 

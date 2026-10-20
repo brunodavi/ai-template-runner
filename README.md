@@ -134,6 +134,8 @@ end = 10
 
 The `[[out.<method>]]` tables run in real document order (one table = one step, an empty table means no arguments) and apply to the rendered `text` — or to the raw response when there is no `text`. Steps are real `str` methods, with named arguments mapped positionally by the real signature. The inline spec is a single step from `method:arg1:arg2` (argument values may not contain ':'), and `{out.field[1:]}` follows pythonic slice syntax. Without `[out]` (or an empty table) the raw AI response is printed. The `[out]` config participates in `extends` inheritance per key: the child `text` and step lists replace the parent's.
 
+The same inline transforms work on every interpolated value in the prompts — `{question:strip}`, `{question[:80]:lower}` and `{cmd.message:upper}`, `{cmd.status[1:20]}` — since the value stays lazy for `{cmd.*}` (the command only runs when a field is actually used).
+
 See [`examples/base.md`](examples/base.md) for the shared base used by the examples. See [`examples/features/`](examples/features/) for feature test templates and [`examples/`](examples/) for ready-to-use task templates such as [`email-subject.md`](examples/email-subject.md) and [`conventional-commits.md`](examples/conventional-commits.md). See [`examples/simulation/`](examples/simulation/) for simulations that run task templates against fixed fixtures.
 
 ## Development
