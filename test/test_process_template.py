@@ -125,6 +125,15 @@ class TestSplitPrompts(TestCase):
         self.assertEqual(user_prompt, '---\nQuestion: {question}')
 
 
+class TestTemplateAnnotations(TestCase):
+    def test_template_annotations_are_resolvable(self):
+        resolvable = 0
+        for name, value in Template.__annotations__.items():
+            self.assertTrue(isinstance(value, type) or value in (dict, str))
+            resolvable += 1
+        self.assertEqual(resolvable, 6)
+
+
 class TestProcessTemplate(TestCase):
     def test_template_with_provider_and_prompt_simple(self):
         template = process_template(FakePath([
