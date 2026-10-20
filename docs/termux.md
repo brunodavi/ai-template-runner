@@ -29,33 +29,54 @@ uv tool install ai-template-runner     # persistent install
 
 ## 2. llama.cpp straight from the Termux packages
 
-Termux ships llama.cpp itself, so there is nothing to compile:
+Termux ships llama.cpp itself, so there is nothing to compile.
+
+### The phone-safe server profile
+
+Without explicit flags, `llama-server` inherits the model's native context
+size (some models expose 32k) and spawns one thread per core — both will freeze
+a phone. This is the safe daily profile on this project's reference device:
 
 ```sh
-pkg install llama-cpp
-llama-server --hf unsloth/Qwen3-0.6B-GGUF --port 8080 --threads 2
+llama-server \
+  --hf unsloth/Qwen3-0.6B-GGUF \
+  --reasoning off \
+  -c 2048 \
+  -t 4 -tb 4 \
+  -b 512 -ub 128 \
+  -np 1 \
+  --host 127.0.0.1 \
+  --port 8080
 ```
 
-### Keep the phone usable: limit the threads
+| Flag | Why it is here |
+|---|---|
+| `--reasoning off` | reasoning/thinking tokens burn context and time; small models ramble in them |
+| `-c 2048` | fixes the context window instead of trusting the model's native one (which can be 8–32k and melt the phone through KV cache RAM) |
+| `-t 4 -tb 4` | generation and prompt-processing threads capped to 4 — the safe ceiling found here; start lower (1–2) on weaker phones |
+| `-b 512 -ub 128` | batch shapes that smooth memory peaks during prompt processing |
+| `-np 1` | one parallel slot — `ait` sends one request at a time anyway |
+| `--host 127.0.0.1` | binds the server to the phone itself; unauthenticated API never reaches the network |
+| `--port 8080` | matches the `base_url` in the template's `[provider]` config |
 
-By default llama.cpp spawns a thread per (physical) CPU core. On a phone that
-is aggressive: Android pauses your whole UI while the CPU is pegged, the
-device cooks, and the battery plummets. **Start with 1–2 threads and grow from
-there:**
+**About `-c`:** the template system is designed to keep prompts small
+(`{cmd.*}` injection + slot-shaped user prompt), so 2048 covers prompt +
+`max_tokens` answer comfortably. If a template needs more context, raise it to
+4096 or 8192 **gradually, one step per run** — depending on the model it can
+boost peak RAM use enough to freeze the whole device. Never assume a larger
+context is free: the KV cache grows with it.
 
-```sh
-llama-server --hf MODEL --port 8080 --threads 1   # safest start
-llama-server --hf MODEL --port 8080 --threads 2   # still responsive
-```
-
-If your phone is stronger, raise `--threads` gradually — one step at a time,
-watching whether the UI stays fluid and the device stays cool. A few extra
-percent of tok/s is never worth a frozen phone; if the device ramps down mid
-prompt (thermal throttle), your effective speed is *lower* anyway.
+If your phone is stronger than the reference device, raise `--threads` first
+(cheapest gain, less RAM), then `-c` — one knob at a time, watching whether the
+UI stays fluid and the device stays cool. Thermal throttling eats the gains:
+if the CPU ramps down mid-prompt, your effective speed is *lower* with more
+threads.
 
 The models this tool targets are small (0.3B–2B). Inference of a ~300-token
-answer at 2 threads over a 6-core phone stays in the seconds range — see the
-reference numbers in [`docs/benchmarks.md`](benchmarks.md).
+answer on the profile above stays in the seconds range — see the reference
+numbers in [`docs/benchmarks.md`](benchmarks.md).
+
+### Alternative installs
 
 `pkg search llama` also lists:
 
@@ -75,7 +96,10 @@ pkg install git cmake clang make
 git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp
 cmake -B build && cmake --build build -j$(nproc)
-./build/bin/llama-server --hf unsloth/Qwen3-0.6B-GGUF --port 8080
+./build/bin/llama-server \
+  --hf unsloth/Qwen3-0.6B-GGUF \
+  --reasoning off -c 2048 -t 4 -tb 4 -b 512 -ub 128 -np 1 \
+  --host 127.0.0.1 --port 8080
 ```
 
 Leave the server running in one Termux session and use `ait` in another.
@@ -116,8 +140,8 @@ the structural work already:
 - `max_tokens` in the `[provider]` table keeps phone-sized responses fast.
 - `temperature = 0.2` and `[provider.extras]` with llama.cpp options like
   `repeat_last_n` stabilize small models noticeably.
-- Converting/park the same model as a file (`--model path/to/file.gguf`)
-  instead of `--hf` when the network is not available.
+- Pin the model as a local file (`--model path/to/model.gguf` instead of
+  `--hf`) when the network is not available.
 - For long sessions, run Termux under `termux-wake-lock` so Android does not
   pause the server.
 
