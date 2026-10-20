@@ -28,6 +28,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --python ${{ matrix.python-version }}
 
+      # pip-audit bootstraps itself via `python -m pip` inside the active
+      # venv; uv-managed venvs do not ship pip, so make it present first.
+      - name: Install pip (required by the pip-audit action)
+        run: uv pip install pip
+
       - name: Run the test suite
         run: uv run python -m unittest
 
