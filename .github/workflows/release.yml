@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: write # create the GitHub Release
+      id-token: write # PyPI trusted publishing, no token stored
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Guard - the tag must match the pyproject version
+        run: |
+          VERSION=$(uv run python -c \
+            'from tomllib import load; print(load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match pyproject version $VERSION"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run the test suite
+        run: uv run python -m unittest
+
+      - name: Build distribution
+        run: uv build
+
+      - name: Publish to PyPI (trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+      - name: Extract the changelog section for this version
+        run: |
+          awk -v ver="$VERSION" '
+            BEGIN { hdr = "## [" ver "]" }
+            index($0, hdr) == 1 { flag=1; next }
+            flag && index($0, "## [") == 1 { exit }
+            flag { print }
+          ' CHANGELOG.md > changelog_section.md
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat changelog_section.md | sed '/^## /d' > notes.md
+          cat >> notes.md <<'EOF'
+          ## Install
+
+          ```sh
+          uvx ai-template-runner --help
+          pipx install ai-template-runner
+          pip install ai-template-runner
+          ```
+
+          See the [README](https://github.com/brunodavi/ai-template-runner#installation)
+          for the full installation surface.
+          EOF
+
+          gh release create "$GITHUB_REF_NAME" \
+            --title "v$VERSION" \
+            --notes-file notes.md
