@@ -69,3 +69,42 @@ Latency and accuracy trade-off (accuracy vs latency/test):
 | qwen8m.gguf | 46.3 | 2.08s | 50.0% |
 | lfm350m.gguf | 35.5 | 0.95s | 27.3% |
 | lfm230m.gguf | 34.5 | 0.65s | 18.2% |
+
+## The hardware benchmark built into llama.cpp
+
+The table above measures *behavior* (accuracy). llama.cpp ships its own
+hardware benchmark, `llama-bench`, which measures raw speed — how fast this
+device, CPU-only, burns prompts and tokens:
+
+```sh
+llama-bench -m model.gguf -p 512 -n 128 -t 1,2,4 -r 3
+```
+
+- `-p 512 -n 128`: how many prompt tokens to process (`pp` test) and how many
+  tokens to generate (`tg` test);
+- `-t 1,2,4`: runs the sweep below and above the phone-safe
+  [`--threads` profile](termux.md#the-phone-safe-server-profile) in one go,
+  so you can see exactly where the phone stops paying off (scaling usually
+  flattens first, then regresses when the SoC throttles);
+- `-r 3`: repeats per test, averaged (5 is the default; 3 keeps the run
+  shorter on battery);
+- `--delay 5` (optional, seconds): cooldown between tests, kind to phones;
+- `-o csv` / `-o json` (optional): machine-friendly output for a spreadsheet
+  or a git-tracked results file.
+
+The run pegs the CPU for its whole duration — close apps, let the phone cool,
+and keep other background inference off while it runs. Note that these measurements exclude tokenization and sampling, so the
+t/s here will read a bit above the tok/s in the behavioral ranking (which
+measures end-to-end).
+
+Two values matter for template tuning:
+
+- **`pp t/s` (prompt processing)** — how expensive your `{cmd.*}` context
+  injection is; large injected outputs cost you here;
+- **`tg t/s` (text generation)** — the real speed of the answer; this is what
+  determines how long `[test]`-budgeted templates take per run.
+
+If you benchmark your own phone, record `model`, threads (`-t`), context, the
+`pp`/`tg` numbers and the llama.cpp build (`llama-bench` prints it), and open
+a PR — behavioral scores from `docs/benchmarks.md` + hardware curves together
+make the capacity map much more useful than either alone.
