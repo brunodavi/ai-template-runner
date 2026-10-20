@@ -8,3 +8,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# tmp/ is a local scratch folder: models in, txt report out
+tmp/*.gguf
+tmp/bench.txt
