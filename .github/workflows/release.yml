@@ -73,6 +73,11 @@ jobs:
           for the full installation surface.
           EOF
 
+          sha256sum dist/* > dist/hashes.txt
+          printf '## Verify the assets\n\n```sh\nsha256sum -c hashes.txt\n```\n\n' >> notes.md
+          cat dist/hashes.txt >> notes.md
+
           gh release create "$GITHUB_REF_NAME" \
             --title "v$VERSION" \
-            --notes-file notes.md
+            --notes-file notes.md \
+            dist/*
