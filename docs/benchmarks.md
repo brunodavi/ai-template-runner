@@ -70,11 +70,67 @@ Latency and accuracy trade-off (accuracy vs latency/test):
 | lfm350m.gguf | 35.5 | 0.95s | 27.3% |
 | lfm230m.gguf | 34.5 | 0.65s | 18.2% |
 
+## Real model identities (from the llama.cpp build tags)
+
+The file names above are the working labels; llama.cpp identified them as:
+
+| File | Actual model | Size | Params |
+|---|---|---:|---:|
+| lfm230m.gguf | lfm2 230M Q4_K - Medium | 144 MiB | 230M |
+| lfm350m.gguf | lfm2 350M Q4_K - Medium | 216 MiB | 354M |
+| qwen8m.gguf | qwen3.5 0.8B Q4_K - Medium | 494 MiB | 752M |
+| grok4-1b-q4_km.gguf | *granite 2B* Q4_K - Medium (not Grok) | 973 MiB | 1.63B |
+| granite.gguf | granitehybrid 1B Q4_K - Medium | 856 MiB | 1.46B |
+| gemma3-1b-it-qat-q4.gguf | gemma3 1B Q4_0 (QAT) | 681 MiB | 1.0B |
+| gemma3-1b-q5.gguf | gemma3 1B Q5_0 | 764 MiB | 1.0B |
+| gemmaE2B.gguf | gemma4 E2B Q4_K - Medium (MoE) | 2.88 GiB | 4.65B |
+
+## Hardware curve — reference phone, CPU-only (llama-bench)
+
+Ran with the [phone-safe profile](termux.md#the-phone-safe-server-profile) on
+the same reference device (`llama-bench -p 512 -n 128 -t 1,2,4 -r 3 --delay 5`),
+covering every model in the behavioral ranking above.
+
+pp512 / tg128, tokens per second, at 1 / 2 / 4 threads:
+
+| File | pp512 t1 | pp512 t4 | tg128 t1 | tg128 t2 | tg128 t4 |
+|---|---:|---:|---:|---:|---:|
+| lfm230m | 22.00 | 95.65 | 12.73 | 22.91 | **45.53** |
+| lfm350m | 12.50 | 53.01 | 8.54 | 15.71 | 29.25 |
+| gemma3-1b-qat | 11.66 | 29.35 | 4.05 | 6.76 | 12.50 |
+| qwen8m | 7.52 | 32.48 | 2.62 | 10.65 | 11.57 |
+| gemma3-1b-q5 | 7.23 | 23.87 | 3.21 | 6.16 | 9.32 |
+| granite | 3.97 | 14.85 | 1.51 | 5.87 | 8.33 |
+| grok4-1b (granite 2B) | 3.19 | 10.69 | 1.92 | 3.68 | 7.17 |
+| gemmaE2B | 3.61 | 9.01 | 1.50 | 3.84 | 3.81 |
+
+What the curves say, cross-referenced with the behavioral scores:
+
+- **Scaling is near-linear up to 4 threads only under ~2B params.** lfm230m
+  tg128 goes 12.7 → 45.5 t/s (3.6×) across 1 → 4 threads. But gemmaE2B
+  saturates at 2 threads (3.84 → 3.81 t/s): the 2.9 GiB MoE gains *nothing*
+  from the extra cores on this device — for the accuracy champion, 2 threads
+  is already the ceiling.
+- **Quantization costs real speed on CPU.** Same 1B gemma3 model: Q4_0 does
+  12.50 t/s at 4 threads, Q5_0 does 9.32 — ~25% slower for the extra accuracy
+  retention.
+- **The speed/accuracy Pareto holds on hardware.** lfm350m (29.25 t/s, among
+  the fastest) with only 27.3% accuracy is the "many quick [test]-filtered
+  retries" pick; gemmaE2B (3.8 t/s but 95.5% accuracy) is the "few,
+  expensive, usually-correct runs" pick. granite sits between: 8.33 t/s for
+  68.2% accuracy.
+- **End-to-end vs raw:** the behavioral benchmark's end-to-end tok/s (which
+  includes tokenization, sampling, prompt processing and app overhead) reads
+  ~2.5–4× below the `llama-bench` tg numbers for the same model (e.g. lfm230m:
+  17.9 end-to-end vs 45.5 raw). Use the raw curve for capacity planning and
+  the behavioral tok/s for what a user will actually feel per `ait run`.
+
 ## The hardware benchmark built into llama.cpp
 
-The table above measures *behavior* (accuracy). llama.cpp ships its own
+The section above (`Hardware curve`) was produced with llama.cpp's own
 hardware benchmark, `llama-bench`, which measures raw speed — how fast this
-device, CPU-only, burns prompts and tokens:
+device, CPU-only, burns prompts and tokens. To reproduce or add another
+device's curve:
 
 ```sh
 llama-bench -m model.gguf -p 512 -n 128 -t 1,2,4 -r 3
