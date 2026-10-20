@@ -10,6 +10,7 @@
 ## Work style
 
 - TDD: for each change, write a failing test first, then implement until it passes.
+- Conventional Commits for every commit: `type: imperative subject` (e.g. `feat: add [out] engine`, `fix: ...`, `docs: ...`, `chore: ...`, `test: ...`, `refactor: ...`). Version bumps are `chore` commits; the examples task template `examples/conventional-commits.md` documents the same convention.
 
 ## Template format (v1.0.0)
 
