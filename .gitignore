@@ -10,5 +10,5 @@ wheels/
 .venv
 
 # tmp/ is a local scratch folder: models in, txt report out
-tmp/*.gguf
-tmp/bench.txt
+# (tmp/bench.sh stays tracked; everything else under tmp/ is local)
+tmp/
