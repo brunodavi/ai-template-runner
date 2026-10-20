@@ -199,6 +199,61 @@ class TestCli(TestCase):
 
 
 
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_output(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json(
+            '{"type": "feat", "message": "add endpoint"}',
+        )
+
+        output = StringIO()
+
+        template = get_template('output')
+
+        with redirect_stdout(output):
+            cli(['run', template])
+
+        output_str = output.getvalue()
+
+        self.assertIn('feat: add endpoint', output_str)
+        self.assertNotIn('"message"', output_str)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_transforms(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json(
+            '{"type": "feat", "message": "  add GET_health endpoint  "}',
+        )
+
+        output = StringIO()
+
+        template = get_template('transforms')
+        question = '  My Question  '
+
+        with redirect_stdout(output):
+            cli(['run', template, question])
+
+        output_str = output.getvalue()
+
+        # [out] steps run in document order over the rendered text
+        self.assertIn('FEAT: ADD GET ENDPOINT', output_str)
+        self.assertNotIn('"type": "feat"', output_str)
+
+        # the prompt interpolates the question through :strip
+        payload = mock_post_json.call_args.args[1]
+        prompt_content = ' '.join(
+            message['content'] for message in payload['messages']
+        )
+
+        self.assertIn('My Question', prompt_content)
+        self.assertNotIn('  My Question  ', prompt_content)
+
+
+
 class TestCliRunWithTests(TestCase):
     def write_template(self, *lines: str) -> str:
         from tempfile import TemporaryDirectory
