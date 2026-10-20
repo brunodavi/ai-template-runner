@@ -1,5 +1,12 @@
 # AGENTS.md
 
+## Project
+
+- Python CLI (`ait`) that runs Markdown+TOML templates through an LLM.
+- Template syntax lives in README.md (source of truth) and in the live
+  examples `examples/features/*` (each one executed by `test/test_cli.py`).
+  This file holds work rules only — do not copy syntax here.
+
 ## Dev commands
 
 - Run all tests: `uv run python -m unittest` (must run from repo root — tests import `src.ai_template_runner...` and `test.helpers`, which only resolve from the root).
@@ -10,21 +17,18 @@
 ## Work style
 
 - TDD: for each change, write a failing test first, then implement until it passes.
-- Conventional Commits for every commit: `type: imperative subject` (e.g. `feat: add [out] engine`, `fix: ...`, `docs: ...`, `chore: ...`, `test: ...`, `refactor: ...`). Version bumps are `chore` commits; the examples task template `examples/conventional-commits.md` documents the same convention.
-- Before pushing a version tag: bump `version` in `pyproject.toml` AND refresh `uv.lock` (run `uv sync` so the lock reflects the new version) — a stale `uv.lock` on a vendored tag is broken packaging.
-- At the end of a change, commit in parts, in this order: `feat` first, then `test`, `docs`, and finally `chore` (e.g. version bump) — each part gets its own Conventional Commit.
-
-## Template format (v1.0.0)
-
-- Templates must start with a ` ```toml ` config block; two `---` lines delimit an optional system prompt; the rest is the user prompt.
-- No legacy `+++` support — don't reintroduce it; tests in `test/test_process_template.py` deliberately assert old-format templates are rejected.
+- Conventional Commits for every commit: `type: imperative subject` (e.g. `feat: add [out] engine`). Version bumps are `chore` commits.
+- At the end of a change, commit in parts, in this order: `feat`, `test`, `docs`, `chore` (e.g. version bump) — each part gets its own commit.
+- Before pushing a version tag: bump `version` in `pyproject.toml` AND refresh `uv.lock` (run `uv sync` so the lock reflects the new version).
+- Every template feature added or changed in a release must land in `examples/features/` (as a new example or an update to an existing one) with its behavior pinned by a test in `test/test_cli.py`.
+- If the conversation defines or changes a work rule: the agent proposes the AGENTS.md diff at the end of the task and only commits after user approval.
 
 ## Gotchas
 
-- `examples/features/*.md` are not just docs: `test/test_cli.py` runs them. **Rule: every template feature added or changed in a release must land in `examples/features/` as a new example or an update to an existing one** (so the feature is exercisable and its behavior is pinned by a test). Current mapping: `output.md` = `[out]` render from JSON fields, `transforms.md` = `[[out.<method>]]` steps in document order + inline `:spec` and `[slice]`. Editing an example (or its placeholders) can break tests. `examples/features/system.md` is the only one with a system prompt. The examples echo the template body (prompt text) before the AI output, so `assertNotIn` on the whole stdout must target raw JSON tokens (e.g. `'"type": "feat"'`), not words that legitimately appear in the prompt body. Task templates live directly in `examples/` (e.g. `email-subject.md`, `conventional-commits.md`) and are not used by tests.
-- Templates may declare `extends = '<path>'` as the first TOML key; the path is resolved relative to the template file (e.g. `../base.md` from `examples/features/`). Parent provider/cmd configs merge per key and empty child prompts inherit parent prompts — so a child can override just the user prompt. Literal `{`/`}` in prompts (JSON examples) must be doubled to `{{`/`}}` because both prompts go through `str.format`.
-- `src/ai_template_runner/models/template.py`: `Template(user_prompt, system_prompt='', ...)` — first positional arg is `user_prompt`.
-- Provider config is validated in `processor.py`, not the dataclass: missing `base_url`/`model` raises `ValueError` there.
-- `examples/simulation/` contains live simulations of task templates (e.g. `conventional-commits/*.md` extends the task with pre-filled git fixtures; only the user prompt is local). Each one carries its own `[test]` table (`type = '<expected commit type>'`) and is validated live with `ait run <file> --test` (exit code 1 on failure, requires the llama.cpp server up) — keep fixtures brace-escaped (`{` → `{{`).
-- `[test]` table has reserved keys `text`, `text_contains`, `text_regex`; every other key is a dotted path into the parsed JSON output. `--test` prints PASS/FAIL to stderr and exits 1 on failure. `run_checks` lives in `checks.py`.
-- `[out]` table renders the display output: `text` is a render template over parsed JSON fields (`{out.field}`, missing → `''`); `[[out.<method>]]` tables are steps in real document order (empty table = no args, populated = named args mapped positionally by the real `str` signature; `slice` is the only helper). Inline single step `{out.field:method:arg1:arg2}` and pythonic `{out.field[1:]}` come from the `Smart` wrapper in `output.py` — transforms exist ONLY in the `:spec`/`[[out.x]]` channels, never as attribute names (a JSON field named `count` stays data). `--test` still validates the raw response; engine tests in `test/test_output.py`. The same `Smart` also powers `{question}` (None stays raw → 'None') and `{cmd.*}` (`Command.__getattr__` returns `Smart`, commands still run lazily per attribute access) — tests in `test/test_process_prompt.py::TestSmartPromptInterpolation`.
+Only what blocks work every session, with a proven failure behind it.
+Syntax belongs to README.md and `examples/features/`.
+
+- Literal `{`/`}` in prompts must be doubled to `{{`/`}}` — every prompt goes through `str.format`.
+- `Template(user_prompt, system_prompt='', ...)`: the first positional arg is `user_prompt`.
+- Provider requires `base_url`/`model`; validation lives in `processor.py`, not the dataclass.
+- `examples/features/*` are executed by the suite: editing an example (or its placeholders) can break tests.
