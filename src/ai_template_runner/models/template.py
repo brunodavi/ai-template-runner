@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from ..command import Command
 from .provider import Provider
 
 @dataclass
