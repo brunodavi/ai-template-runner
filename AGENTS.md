@@ -27,7 +27,7 @@
 - Conventional Commits for every commit: `type: imperative subject` (e.g. `feat: add [out] engine`). Version bumps are `chore` commits.
 - At the end of a change, commit in parts, in this order: `feat`, `test`, `docs`, `chore` (e.g. version bump) — each part gets its own commit.
 - Before pushing a version tag: bump `version` in `pyproject.toml` AND refresh `uv.lock` (run `uv sync` so the lock reflects the new version).
-- Every template feature added or changed in a release must land in `examples/features/` (as a new example or an update to an existing one) with its behavior pinned by a test in `test/test_cli.py`.
+- Every template feature added or changed in a release must land in `examples/features/` (as a new example or an update to an existing one) with its behavior pinned by a test in `test/test_cli.py`. New feature examples extend `../base.md` (`extends = '../base.md'` as the first TOML key) instead of duplicating the `[provider]` block.
 - A release needs a `## [X.Y.Z]` CHANGELOG.md section matching the tag —
   release.yml extracts it verbatim and hard-fails when tag ≠ pyproject version.
 - tmp/ is fully local (gitignored, script included): never commit anything under it.
