@@ -54,12 +54,18 @@ Requires Python 3.12+. The CLI is `ait` (or `ai-template-runner`); the package h
 ait run examples/features/full.md "What is Python?"
 ait run examples/features/full.md "What is Python?" --quiet
 ait run examples/simulation/conventional-commits/feat.md --test
+ait run "examples/features/*.md"                      # batch: quoted glob runs every template
+ait run examples/features/args.md first second        # positional args fill {1}, {2}...
+ait run examples/features/args.md -- "-not-a-flag"    # everything after -- is verbatim arg data
 ait --help
 ait run --help
 ```
 
 - `-q` / `--quiet`: display only the AI response (stdout stays clean for pipes).
 - `-t` / `--test`: validate the response against the template's `[test]` table. PASS/FAIL lines go to stderr and the exit code is 1 when any check fails.
+- `--fail-fast`: with a batch and `--test`, stop at the first template with a FAIL.
+
+The template argument is always resolved the same way: an existing file is used directly (absolute or relative), and anything else is matched as a glob pattern relative to the current directory (`**` recursion works). A batch runs every match in sorted order; files that do not start with the ` ```toml ` configuration block are skipped with a warning on stderr. One resolved file that is not a template is a usage error.
 
 ## Templates
 
@@ -101,7 +107,15 @@ Answer the following question concisely: {question}
 
 The TOML block is parsed and removed from the prompt content. The optional system prompt is delimited by two `---` separators; everything after the second separator is the user prompt. When the separators are omitted, the whole content after the configuration block is the user prompt.
 
-The `{question}` placeholder is replaced with the CLI input. The `{cmd.message}` placeholder executes the configured command and inserts its output into the prompt. Placeholders can be used in both the system and user prompts.
+`{question}` is the alias of `{1}`: with `run TEMPLATE "My Question"`, both render the first value after the template. Positional slots:
+
+| Placeholder | Value |
+|---|---|
+| `{0}` | absolute path of the running template (for a batch, each run gets its own path) |
+| `{1}` / `{question}` | first value after the template |
+| `{2}`, `{3}`, ... | subsequent values |
+
+`{0}` and every positional value are `Smart` strings, so pythonic slices and inline transforms work on them the same way they do inside `[out]`: `{0[1:]}`, `{question:strip}`, `{2[:8]}`, `{2:replace:old:new}`. The `{cmd.message}` placeholder executes the configured command and inserts its output into the prompt. Placeholders can be used in both the system and user prompts.
 
 The provider supports these generation parameters:
 
@@ -142,6 +156,7 @@ Run with validation:
 
 ```bash
 ait run examples/simulation/conventional-commits/feat.md --test
+ait run "examples/**/*.md" --test    # batch: aggregated exit code over every template
 ```
 
 PASS/FAIL lines go to stderr (stdout stays clean for pipes) and the exit code is 1 when any check fails. Missing JSON fields and invalid JSON output fail instead of raising. The `[test]` table participates in `extends` inheritance like the other config tables.
@@ -172,7 +187,7 @@ end = 10
 
 The `[[out.<method>]]` tables run in real document order (one table = one step, an empty table means no arguments) and apply to the rendered `text` — or to the raw response when there is no `text`. Steps are real `str` methods, with named arguments mapped positionally by the real signature. The inline spec is a single step from `method:arg1:arg2` (argument values may not contain ':'), and `{out.field[1:]}` follows pythonic slice syntax. Without `[out]` (or an empty table) the raw AI response is printed. The `[out]` config participates in `extends` inheritance per key: the child `text` and step lists replace the parent's.
 
-The same inline transforms work on every interpolated value in the prompts — `{question:strip}`, `{question[:80]:lower}` and `{cmd.message:upper}`, `{cmd.status[1:20]}` — since the value stays lazy for `{cmd.*}` (the command only runs when a field is actually used).
+The same inline transforms work on every interpolated value in the prompts — `{question:strip}`, `{question[:80]:lower}`, `{0[1:]}` and `{cmd.message:upper}`, `{cmd.status[1:20]}` — since the value stays lazy for `{cmd.*}` (the command only runs when a field is actually used). See [`examples/features/args.md`](examples/features/args.md) for the positional placeholders in action.
 
 ## Examples and docs
 

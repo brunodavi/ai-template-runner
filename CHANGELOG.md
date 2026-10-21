@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-10-21
+
+### Added
+
+- `run` accepts multiple templates through a glob pattern: matches run in sorted order, files that do not start with the ` ```toml ` configuration block are skipped with a stderr warning inside a batch (a single non-template candidate is a usage error), and `--fail-fast` stops the batch at the first template with a FAIL; the exit code is 1 when any template fails.
+- Positional placeholders: `{0}` is the absolute path of the running template and `{1}`, `{2}`, ... are the values passed after it (`{question}` remains the alias of `{1}`). All slots are `Smart` values, so pythonic slices (`{0[1:]}`, `{0[:3]}`) and inline transforms work on the path and on every arg.
+- `--` escape in `run`: everything after `--` is verbatim arg data, so values starting with `-` reach the template unchanged.
+- `examples/features/args.md` demonstrating the positional placeholders.
+
+### Changed
+
+- `run` flags may now appear before, between and after the positional args (intermixed argument parsing).
+
+### Fixed
+
+- Interpolation problems fail with friendly usage errors instead of raw tracebacks: unknown placeholders, too few args, and `{}` mixed with numbered slots get dedicated messages.
+
 ## [1.6.0] - 2026-10-20
 
 ### Added
