@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from tomllib import loads
 
@@ -168,24 +169,72 @@ def process_template(template_path: Path) -> Template:
     )
 
 
-def interpolate(text: str, template: Template, question: str | None) -> str:
-    return text.format(
-        question=Smart(question) if isinstance(question, str) else question,
-        cmd=template.cmd,
-    ).strip()
+def interpolate(
+    text: str,
+    template: Template,
+    question: str | None = None,
+    args: list[str] | None = None,
+    template_path: Path | None = None,
+) -> str:
+    """Interpolate a prompt with the positional slots and aliases.
+
+    Positional slots: {0} is the absolute template path (as text) and
+    {1}, {2}... are the values passed after the template ({question}
+    remains the alias of {1}). Slots are Smart values, so slices
+    ({0[1:]}, {0[:3]}) and inline :spec transforms work exactly like
+    they do inside [out].
+    """
+    slots = ([question] if question is not None else []) + list(args or [])
+    path_value = str(template_path.resolve()) if template_path is not None else ''
+
+    try:
+        return text.format(
+            Smart(path_value),
+            *[Smart(value) for value in slots],
+            question=Smart(question) if isinstance(question, str) else question,
+            cmd=template.cmd,
+        ).strip()
+    except KeyError as error:
+        raise ValueError(
+            f'usage error: unknown placeholder "{error.args[0]}"'
+            ' (available: {question}, {0}, {1}, {2}... and {cmd.*})'
+        ) from None
+    except IndexError as error:
+        match = re.search(r'Replacement index (\d+)', str(error))
+        index = match.group(1) if match else '?'
+        raise ValueError(
+            f'usage error: not enough args: the template needs '
+            f'placeholder {{{index}}} but got {len(slots)} arg(s)'
+            f'{" — use -- to pass args that start with \"-\"" if len(slots) == 1 else ""}'
+        ) from None
+    except ValueError as error:
+        if 'cannot switch from' in str(error):
+            raise ValueError(
+                'usage error: {} cannot be mixed with {0}-style numbered '
+                'slots (use {0}, {1}, {2}...)'
+            ) from None
+        raise
 
 
 def process_prompt(
         template: Template,
-        question: str | None = None
+        question: str | None = None,
+        args: list[str] | None = None,
+        template_path: Path | None = None,
     ) -> str:
 
-    return interpolate(template.user_prompt, template, question)
+    return interpolate(
+        template.user_prompt, template, question, args, template_path
+    )
 
 
 def process_system_prompt(
         template: Template,
-        question: str | None = None
+        question: str | None = None,
+        args: list[str] | None = None,
+        template_path: Path | None = None,
     ) -> str:
 
-    return interpolate(template.system_prompt, template, question)
+    return interpolate(
+        template.system_prompt, template, question, args, template_path
+    )
