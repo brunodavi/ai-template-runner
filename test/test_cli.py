@@ -252,6 +252,25 @@ class TestCli(TestCase):
         self.assertIn('My Question', prompt_content)
         self.assertNotIn('  My Question  ', prompt_content)
 
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_args(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        template = get_template('args')
+
+        with redirect_stdout(StringIO()):
+            cli(['run', template, 'one', 'two'])
+
+        content = mock_post_json.call_args.args[1]['messages'][1]['content']
+
+        self.assertIn(str(Path(template).resolve()), content)
+        self.assertIn(f'{str(Path(template).resolve())[1:]}', content)
+        self.assertIn('one', content)
+        self.assertIn('two', content)
+
 
 
 class TestCliRunWithTests(TestCase):
@@ -365,3 +384,336 @@ class TestCliRunWithTests(TestCase):
             cli(['run', template, '--test'])
 
         self.assertEqual(stderr.getvalue(), '')
+
+
+PROVIDER_BLOCK = [
+    '```toml',
+    '[provider]',
+    'base_url = "http://localhost:8080"',
+    'model = "test-model"',
+    '```',
+]
+
+
+class TestCliRunArgs(TestCase):
+    """`ait run TEMPLATE [args...]`: args fill {1}, {2}... and
+    {question} stays the alias of {1}."""
+
+    def write_template(self, *lines: str) -> str:
+        from tempfile import TemporaryDirectory
+
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+
+        path = Path(tmp.name) / 'template.md'
+        path.write_text('\n'.join(lines))
+        return str(path)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_numbered_placeholders_map_to_template_and_args(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        template = self.write_template(
+            *PROVIDER_BLOCK,
+            '---',
+            'args: {1} {2}',
+            'question: {question}',
+            'path: {0[1:]}',
+        )
+
+        with redirect_stdout(StringIO()):
+            cli(['run', template, 'one', 'two'])
+
+        content = mock_post_json.call_args.args[1]['messages'][1]['content']
+
+        self.assertIn('args: one two', content)
+        self.assertIn('question: one', content)
+        self.assertIn(f'path: {str(Path(template).resolve())[1:]}', content)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_missing_args_fail_with_friendly_error(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        template = self.write_template(
+            *PROVIDER_BLOCK,
+            '---',
+            'third: {3}',
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as err:
+                cli(['run', template, 'one'])
+
+        self.assertEqual(err.exception.code, 1)
+        self.assertIn('not enough args', stderr.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_unknown_placeholder_fails_with_friendly_error(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        template = self.write_template(
+            *PROVIDER_BLOCK,
+            '---',
+            'prompt {missing_name}',
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as err:
+                cli(['run', template])
+
+        self.assertEqual(err.exception.code, 1)
+        self.assertIn('unknown placeholder', stderr.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_args_after_dashdash_are_verbatim(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        template = self.write_template(
+            *PROVIDER_BLOCK,
+            '---',
+            'args: {1} {2} {3}',
+        )
+
+        stdout = StringIO()
+
+        with redirect_stdout(stdout):
+            cli(['run', template, 'one', '--', '-t', '--test'])
+
+        content = mock_post_json.call_args.args[1]['messages'][1]['content']
+
+        self.assertIn('args: one -t --test', content)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_flag_between_and_before_args_is_parsed(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json('{"type": "feat"}')
+
+        template = self.write_template(
+            '```toml',
+            '[provider]',
+            'base_url = "http://localhost:8080"',
+            'model = "test-model"',
+            '[test]',
+            'type = "feat"',
+            '```',
+            '---',
+            'args: {1} {2}',
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            cli(['run', '-t', template, 'one', '--test', 'two'])
+
+        content = mock_post_json.call_args.args[1]['messages'][1]['content']
+
+        self.assertIn('args: one two', content)
+        self.assertIn('PASS type', stderr.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_no_args_keeps_question_empty(self, mock_post_json: MagicMock):
+        mock_post_json.return_value = make_post_json()
+
+        template = self.write_template(
+            *PROVIDER_BLOCK,
+            '---',
+            'question: [{question}]',
+        )
+
+        stdout = StringIO()
+
+        with redirect_stdout(stdout):
+            cli(['run', template])
+
+        content = mock_post_json.call_args.args[1]['messages'][1]['content']
+
+        self.assertIn('question: []', content)
+
+
+class TestCliRunTemplates(TestCase):
+    """Template resolution, batch runs and content filtering."""
+
+    def setup_dir(self, files: dict[str, str]) -> Path:
+        from tempfile import TemporaryDirectory
+
+        tmp = TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+
+        for name, content in files.items():
+            (Path(tmp.name) / name).write_text(content)
+
+        return Path(tmp.name)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_batch_runs_every_template_in_order(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        directory = self.setup_dir(
+            {
+                'a.md': '\n'.join(PROVIDER_BLOCK + ['---', 'prompt a']),
+                'b.md': '\n'.join(PROVIDER_BLOCK + ['---', 'prompt b']),
+            }
+        )
+
+        stdout = StringIO()
+
+        with redirect_stdout(stdout):
+            cli(['run', f'{directory}/*.md'])
+
+        stdout_str = stdout.getvalue()
+
+        self.assertIn('prompt a', stdout_str)
+        self.assertIn('prompt b', stdout_str)
+        self.assertIn('Running template: a.md', stdout_str)
+        self.assertIn('Running template: b.md', stdout_str)
+        self.assertIn('summary: 2/2 templates ok', stdout_str)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_batch_skips_non_template_files_with_warning(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        directory = self.setup_dir(
+            {
+                'readme.md': '# just documentation, no toml block',
+                'a.md': '\n'.join(PROVIDER_BLOCK + ['---', 'prompt a']),
+            }
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            cli(['run', f'{directory}/*.md'])
+
+        self.assertIn('warning: skipped readme.md (not a template)', stderr.getvalue())
+        self.assertIn('prompt a', stdout.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_single_non_template_candidate_hard_fails(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        directory = self.setup_dir({'readme.md': '# documentation'})
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as err:
+                cli(['run', f'{directory}/readme.md'])
+
+        self.assertEqual(err.exception.code, 1)
+        mock_post_json.assert_not_called()
+        self.assertIn('not a template', stderr.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_unmatched_template_is_a_usage_error(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        directory = self.setup_dir({'a.md': '\n'.join(PROVIDER_BLOCK)})
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as err:
+                cli(['run', f'{directory}/missing/*.md'])
+
+        self.assertEqual(err.exception.code, 1)
+        self.assertIn('no template matched', stderr.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_batch_exit_1_when_any_check_fails(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.side_effect = [make_post_json('TESTING'), make_post_json('{"type": "feat"}')]
+
+        directory = self.setup_dir(
+            {
+                'a.md': '\n'.join(PROVIDER_BLOCK[:-1] + ['[test]', 'type = "feat"', '```', '---', 'prompt a']),
+                'b.md': '\n'.join(PROVIDER_BLOCK[:-1] + ['[test]', 'type = "feat"', '```', '---', 'prompt b']),
+            }
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as err:
+                cli(['run', f'{directory}/*.md', '--test'])
+
+        self.assertEqual(err.exception.code, 1)
+        self.assertIn('FAIL type', stderr.getvalue())
+        self.assertIn('summary: 1/2 templates ok, 1 with FAIL', stdout.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_fail_fast_stops_at_first_failing_template(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.side_effect = [make_post_json('TESTING'), make_post_json('{"type": "feat"}')]
+
+        directory = self.setup_dir(
+            {
+                'a.md': '\n'.join(PROVIDER_BLOCK[:-1] + ['[test]', 'type = "feat"', '```', '---', 'prompt a']),
+                'b.md': '\n'.join(PROVIDER_BLOCK[:-1] + ['[test]', 'type = "feat"', '```', '---', 'prompt b']),
+            }
+        )
+
+        stdout, stderr = StringIO(), StringIO()
+
+        with redirect_stdout(stdout), redirect_stderr(stderr):
+            with self.assertRaises(SystemExit) as err:
+                cli(['run', f'{directory}/*.md', '--test', '--fail-fast'])
+
+        self.assertEqual(err.exception.code, 1)
+        self.assertEqual(mock_post_json.call_count, 1)
+        self.assertIn('fail-fast', stderr.getvalue())
+        self.assertNotIn('prompt b', stdout.getvalue())
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_quiet_batch_prints_one_response_per_line(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        directory = self.setup_dir(
+            {
+                'a.md': '\n'.join(PROVIDER_BLOCK + ['---', 'prompt a']),
+                'b.md': '\n'.join(PROVIDER_BLOCK + ['---', 'prompt b']),
+            }
+        )
+
+        stdout = StringIO()
+
+        with redirect_stdout(stdout):
+            cli(['run', f'{directory}/*.md', '-q'])
+
+        self.assertEqual(stdout.getvalue(), 'TESTING\nTESTING\n')
