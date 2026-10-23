@@ -9,9 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Database files are never committed; whitelist exceptions below with !whatever.db
+*.db
+
 # tmp/ is a local scratch folder: models in, txt report out
 # (tmp/bench.sh stays tracked; everything else under tmp/ is local)
 tmp/
-
-# [memory] example: generated sqlite index, rebuilt from memory-notes.txt
-examples/features/memory.db
