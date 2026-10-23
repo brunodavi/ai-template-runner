@@ -523,6 +523,22 @@ class TestMemoryResolution(TestCase):
 
         self.assertEqual(sources, [alpha.resolve(), bravo.resolve()])
 
+    def test_glob_results_are_sorted_even_when_the_files_are_not(self):
+        from unittest.mock import patch
+
+        alpha = self.write(f'{NOTES_DIR}/alpha.md', 'alpha')
+        bravo = self.write(f'{NOTES_DIR}/bravo.md', 'bravo')
+        collection = self.make_collection(source=f'{NOTES_DIR}/*.md')
+
+        # os.scandir does not guarantee order: simulate an unsorted match
+        with patch(
+            'src.ai_template_runner.memory.glob',
+            return_value=[str(bravo), str(alpha)],
+        ):
+            sources = resolve_sources(collection, self.root / 'template.md')
+
+        self.assertEqual(sources, [alpha.resolve(), bravo.resolve()])
+
     def test_missing_source_is_a_value_error(self):
         collection = self.make_collection(source='notes/missing.md')
 
