@@ -1,6 +1,6 @@
 [project]
 name = "ai-template-runner"
-version = "1.8.0"
+version = "1.9.0"
 description = "Simple AI workflow based on Markdown templates"
 readme = "README.md"
 license = "MIT"
