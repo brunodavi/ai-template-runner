@@ -131,7 +131,7 @@ class TestTemplateAnnotations(TestCase):
         for name, value in Template.__annotations__.items():
             self.assertTrue(isinstance(value, type) or value in (dict, str))
             resolvable += 1
-        self.assertEqual(resolvable, 6)
+        self.assertEqual(resolvable, 7)
 
 
 class TestProcessTemplate(TestCase):

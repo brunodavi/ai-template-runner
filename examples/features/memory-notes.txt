@@ -1,0 +1,3 @@
+RECALL fact: the template runner works offline on the phone, keeping every prompt short and structured.
+
+NOTE fact: examples double as documentation, and the test suite executes each one of them.

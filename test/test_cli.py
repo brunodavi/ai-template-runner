@@ -24,6 +24,29 @@ def make_post_json(content: str = 'TESTING'):
 def get_template(name: str) -> str:
     return str(ROOT / 'examples' / 'features' / f'{name}.md')
 
+
+def memory_vectors(text: str) -> list[float]:
+    """Deterministic embeddings: 'offline' leans to the RECALL note."""
+    if 'RECALL' in text or 'offline' in text:
+        return [1.0, 0.0]
+
+    if 'NOTE' in text:
+        return [0.0, 1.0]
+
+    raise ValueError(f'unexpected embedding request: {text!r}')
+
+
+def memory_post_json(url, payload):
+    """Two-stage dispatcher: 'input' payloads are embeddings, the rest is chat."""
+    if 'input' in payload:
+        return {
+            'data': [
+                {'embedding': memory_vectors(text)} for text in payload['input']
+            ]
+        }
+
+    return make_post_json()
+
 class TestCli(TestCase):
     @patch('src.ai_template_runner.providers.post_json')
     def test_cli_run_with_template_hello(
@@ -717,3 +740,53 @@ class TestCliRunTemplates(TestCase):
             cli(['run', f'{directory}/*.md', '-q'])
 
         self.assertEqual(stdout.getvalue(), 'TESTING\nTESTING\n')
+
+
+class TestCliMemory(TestCase):
+    def setUp(self):
+        # the example db is a generated artifact: fresh build per test
+        (ROOT / 'examples' / 'features' / 'memory.db').unlink(missing_ok=True)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_memory_notes_reach_the_prompt_in_relevance_order(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.side_effect = memory_post_json
+
+        output = StringIO()
+
+        with redirect_stdout(output):
+            cli(['run', get_template('memory'), 'offline runner'])
+
+        # chunk batch + query embedding + chat
+        self.assertEqual(mock_post_json.call_count, 3)
+
+        chunk_input = mock_post_json.call_args_list[0].args[1]['input']
+        query_input = mock_post_json.call_args_list[1].args[1]['input']
+        self.assertEqual(len(chunk_input), 2)  # both notes in one batch
+        self.assertEqual(query_input, ['offline runner'])
+
+        prompt = mock_post_json.call_args_list[2].args[1]['messages'][1]['content']
+        self.assertIn('offline runner', prompt)
+        self.assertIn('RECALL fact', prompt)
+        self.assertLess(prompt.index('RECALL fact'), prompt.index('NOTE fact'))
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_memory_index_is_reused_while_the_hash_matches(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.side_effect = memory_post_json
+
+        with redirect_stdout(StringIO()):
+            cli(['run', get_template('memory'), 'offline runner'])
+
+        after_build = mock_post_json.call_count  # chunk batch + query + chat
+        self.assertEqual(after_build, 3)
+
+        with redirect_stdout(StringIO()):
+            cli(['run', get_template('memory'), 'offline runner'])
+
+        # the fingerprint still matches, so only the query and the chat run
+        self.assertEqual(mock_post_json.call_count, after_build + 2)
