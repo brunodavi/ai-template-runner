@@ -16,6 +16,7 @@ from src.ai_template_runner.memory import (
     unpack_vector,
 )
 from src.ai_template_runner.memory import MemoryStore
+from src.ai_template_runner.command import Command
 from src.ai_template_runner.models.memory import MemoryCollection, MemoryEmbedder
 from src.ai_template_runner.processor import (
     process_prompt,
@@ -810,6 +811,65 @@ class TestMemorySession(TestCase):
         ]
         self.assertEqual(len(inputs), 2)          # one for the chunks, one for the query
         self.assertEqual(len(inputs[0]), 2)       # both chunks in one batch
+
+    def retrieve_with_cmd(self, memory, question: str, cmd, args=None):
+        memory_session = session(
+            memory, question, args or [], self.root / 'template.md', cmd
+        )
+        return memory_session.notes
+
+    def any_post_json(self, url, payload):
+        """Neutral driver: every text embeds to the same vector."""
+        if 'input' in payload:
+            return {
+                'data': [
+                    {'embedding': [1.0, 0.0]} for _ in payload['input']
+                ]
+            }
+
+        return {'choices': [{'message': {'content': 'TESTING'}}]}
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_query_interpolates_a_cmd_placeholder(self, mock_post_json):
+        """{cmd.*} in the collection query: the all-minilm-only case —
+        the retrieval question itself comes from a command."""
+        mock_post_json.side_effect = self.any_post_json
+        self.write(NOTES_FILE, NOTES_TEXT)
+        memory = self.make_memory(query='{cmd.en}')
+
+        self.retrieve_with_cmd(
+            memory, 'BR recall', Command(en='echo TRANSLATED')
+        )
+
+        query_inputs = mock_post_json.call_args_list[-1].args[1]['input']
+        self.assertIn('TRANSLATED', query_inputs)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_cmd_in_query_interpolates_the_same_run_slots(self, mock_post_json):
+        mock_post_json.side_effect = self.any_post_json
+        self.write(NOTES_FILE, NOTES_TEXT)
+        memory = self.make_memory(query='{cmd.en}')
+
+        self.retrieve_with_cmd(
+            memory, 'BR recall', Command(en='echo {question:strip}')
+        )
+
+        query_inputs = mock_post_json.call_args_list[-1].args[1]['input']
+        self.assertIn('BR recall', query_inputs)
+
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_query_cmd_placeholder_without_a_cmd_fails_descriptively(
+            self, mock_post_json):
+        mock_post_json.side_effect = self.any_post_json
+        self.write(NOTES_FILE, NOTES_TEXT)
+        memory = self.make_memory(query='{cmd.en}')
+
+        with self.assertRaises(ValueError) as err:
+            self.retrieve(memory, 'BRAVO please')
+
+        self.assertIn('unknown placeholder', str(err.exception))
+        self.assertIn('"cmd"', str(err.exception))
+        self.assertIn('[memory.notes] query', str(err.exception))
 
     @patch('src.ai_template_runner.providers.post_json')
     def test_retrieval_is_cached_within_the_session(self, mock_post_json):
