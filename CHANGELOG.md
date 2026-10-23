@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-10-23
+
+### Added
+
+- `[cmd]` values interpolate the run slots: `message = 'grep "{question}" notes.txt'` fills `{question}`, `{0}` (the template path) and every positional slot right before the subprocess runs, when the `{cmd.<name>}` placeholder is evaluated. Positional slots, slices and `:spec` transforms work exactly like in prompts — lazy like the `[memory]` collection query, and the usage errors name the site (`unknown placeholder ... in [cmd] message`, `not enough args in [cmd] message: slot {1} requested, got 0 arg(s)`). Interpolation is raw by design (no automatic quoting, documented in the README), and literal shell braces stay escaped (`awk '{{print $2}}'`).
+- One shared slot interpolator: `slots.py::interpolate_slots` extracts the machine that was inline in the `[memory]` collection query — `[memory] query` and `[cmd]` values now run the same code path. `command.py::CommandView` receives the run context from the format call itself, so `Template` keeps no per-run state.
+- `examples/features/command-path.md` and `examples/features/command-context.txt` demonstrating and pinning directory derivation from the `{0}` template path (`$(dirname "{0}")` to reach sibling data files).
+- Repo process: every example now requires a signed-off live `llama-server` run before publishing — syntax bar for `examples/features/*.md`, quality bar for the `examples/*.md` task templates, with the human review made explicit (AGENTS.md).
+
 ## [1.8.0] - 2026-10-23
 
 ### Added
