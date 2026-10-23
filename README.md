@@ -178,6 +178,32 @@ How the retrieval works:
 - Point `base_url` at any OpenAI-compatible `/v1/embeddings` endpoint (llama.cpp server,
   Ollama, LM Studio, ...). See [`examples/features/memory.md`](examples/features/memory.md).
 
+Chunk behavior in practice, measured with real notes and a MiniLM-class
+embedding model (single-run evidence, phone CPU):
+
+- **The chunk is the ranking item.** With a generous `chunk_size`, paragraphs pack whole into
+  one chunk (joined by a newline) and retrieval injects fewer, cohesive pieces. Lowering
+  `chunk_size` below the paragraph length switches those notes to sliding windows instead —
+  the stride overlap then injects the characters around every cut, and the seams are visible
+  in the prompt (`... the release workflow ` ending one chunk, `and write a matching ...`
+  starting the next).
+- **Seams can cost answer quality.** In a model swap test over the same notes, a chunk size
+  smaller than the paragraphs made a strong 8B chat model see the same sentence three times
+  and emit a duplicated step in its answer, while the packed configuration produced a clean,
+  complete answer. Keep `chunk_size` above your paragraphs' length when the notes are short
+  paragraphs; use small chunks deliberately when you want note-level granularity.
+- **On a short-window embedding model** (MiniLM-class, ~256-token context), `chunk_size` in
+  the 200–600 chars range keeps each chunk inside the embedding window without truncation.
+- **Retrieval is a selection pipeline:** up to `top_k` chunks (default 4) past the
+  `min_score` filter, capped by `max_chars` — with fewer than `top_k` candidates inside the
+  budget, `{memory.notes}` simply carries what fits. The first ranked chunk always enters.
+- **A `min_score` set above the conversation's hit level renders `{memory.notes}` empty** —
+  off-topic questions produced an empty context and the chat model answered without notes.
+  Keep `min_score = 0.0` (default) unless you intentionally want the quality gate.
+- **Retuning retrieval knobs never re-embeds.** `top_k`, `min_score` and `max_chars` are
+  outside the index fingerprint: change them freely between runs. Editing the notes, the
+  chunking parameters or the embeddings model is what triggers a rebuild.
+
 A template can inherit configuration, commands, and prompts from another template with a top-level `extends` key placed before any TOML table:
 
 ```toml
