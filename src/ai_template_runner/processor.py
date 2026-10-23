@@ -4,7 +4,7 @@ from tomllib import loads
 
 from .models.template import Template
 from .models.provider import Provider
-from .command import Command
+from .command import Command, CommandView
 from .memory import build_memory, resolve_sources, session as memory_session
 from .output import build_out, number_out_headers, Smart
 
@@ -202,7 +202,7 @@ def interpolate(
             Smart(path_value),
             *[Smart(value) for value in slots],
             question=Smart(question) if isinstance(question, str) else question,
-            cmd=template.cmd,
+            cmd=CommandView(template.cmd, question, args, template_path),
             **({'memory': memory_session(template.memory, question, args, template_path)}
                if template.memory is not None else {}),
         ).strip()

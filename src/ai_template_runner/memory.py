@@ -21,6 +21,7 @@ import sqlite3
 
 from . import providers
 from .output import Smart
+from .slots import interpolate_slots
 from .models.memory import Memory, MemoryCollection, MemoryEmbedder
 
 CHUNK_JOIN = '\n'
@@ -526,39 +527,13 @@ class MemorySession:
         return CONTEXT_JOIN.join(parts)
 
     def _interpolate_query(self, collection: MemoryCollection) -> str:
-        path_value = str(self._template_path)
-        slots = (
-            ([self._question] if self._question is not None else [])
-            + self._args
+        return interpolate_slots(
+            collection.query,
+            self._question,
+            self._args,
+            self._template_path,
+            where=f'in [memory.{collection.name}] query',
         )
-
-        try:
-            return collection.query.format(
-                Smart(path_value),
-                *[Smart(value) for value in slots],
-                question=(
-                    Smart(self._question)
-                    if isinstance(self._question, str)
-                    else self._question
-                ),
-            ).strip()
-        except KeyError as error:
-            raise ValueError(
-                'usage error: unknown placeholder '
-                f'"{error.args[0]}" in [memory.{collection.name}] query '
-                '(available: {question}, {0}, {1}, {2}...)'
-            ) from None
-        except IndexError as error:
-            raise ValueError(
-                f'usage error: not enough args for [memory.{collection.name}] query'
-            ) from None
-        except ValueError as error:
-            if 'cannot switch from' in str(error):
-                raise ValueError(
-                    'usage error: {} cannot be mixed with {0}-style numbered '
-                    'slots (use {0}, {1}, {2}...)'
-                ) from None
-            raise
 
 
 def session(memory: Memory, question, args, template_path) -> MemorySession:
