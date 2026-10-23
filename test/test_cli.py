@@ -124,6 +124,7 @@ class TestCli(TestCase):
 
         self.assertNotIn('echo', output_str)
         self.assertIn('hello', output_str)
+        self.assertIn(f'{question} interpolated', output_str)
         self.assertIn(question, output_str)
         self.assertIn('TESTING', output_str)
 

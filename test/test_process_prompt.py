@@ -1,4 +1,5 @@
 from unittest import TestCase
+from pathlib import Path
 
 from src.ai_template_runner.processor import (
     process_prompt,
@@ -126,6 +127,121 @@ class TestSmartPromptInterpolation(TestCase):
 
         # no spec: the raw value keeps its spacing; :strip transforms
         self.assertEqual(prompt, '[  padded question  ] vs [padded question]')
+
+
+class TestCmdSlotInterpolation(TestCase):
+    """[cmd] values accept the same run slots as the prompts; the
+    {cmd.<name>} reference interpolates the value right before the
+    subprocess runs (lazy, like the [memory] collection query)."""
+
+    def test_cmd_value_interpolates_question(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo "{question}"'),
+        )
+
+        prompt = process_prompt(template, 'hello world')
+
+        self.assertEqual(prompt, 'prompt hello world')
+
+    def test_cmd_value_interpolates_positional_slots(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo first={1} second={2}'),
+        )
+
+        prompt = process_prompt(template, 'alpha', ['beta'])
+
+        self.assertEqual(prompt, 'prompt first=alpha second=beta')
+
+    def test_cmd_value_interpolates_path_slot(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo run={0}'),
+        )
+        expected = str(Path('/tmp/opencode/run.md').resolve())
+
+        prompt = process_prompt(
+            template, 'test', template_path=Path('/tmp/opencode/run.md')
+        )
+
+        self.assertEqual(prompt, f'prompt run={expected}')
+
+    def test_cmd_value_supports_spec_transforms(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo {question:strip}'),
+        )
+
+        prompt = process_prompt(template, '  padded  ')
+
+        self.assertEqual(prompt, 'prompt padded')
+
+    def test_cmd_value_supports_slices(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo {question[:5]}'),
+        )
+
+        prompt = process_prompt(template, 'hello world')
+
+        self.assertEqual(prompt, 'prompt hello')
+
+    def test_cmd_value_unknown_placeholder_fails_descriptively(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo {banana}'),
+        )
+
+        with self.assertRaises(ValueError) as err:
+            process_prompt(template, 'test')
+
+        self.assertIn('banana', str(err.exception))
+        self.assertIn('[cmd] message', str(err.exception))
+        self.assertIn('unknown placeholder', str(err.exception))
+
+    def test_cmd_value_not_enough_args_fails_descriptively(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo {2}'),
+        )
+
+        with self.assertRaises(ValueError) as err:
+            process_prompt(template, 'test')
+
+        self.assertIn('not enough args', str(err.exception))
+        self.assertIn('[cmd] message', str(err.exception))
+
+    def test_cmd_value_mixed_slot_styles_fail_descriptively(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo {0} {}'),
+        )
+
+        with self.assertRaises(ValueError) as err:
+            process_prompt(template, 'test')
+
+        self.assertIn('cannot be mixed', str(err.exception))
+
+    def test_cmd_value_doubled_braces_become_literals(self):
+        template = Template(
+            'prompt {cmd.shout}',
+            cmd=Command(shout="echo '{{print 42}}'"),
+        )
+
+        prompt = process_prompt(template)
+
+        self.assertEqual(prompt, 'prompt {print 42}')
+
+    def test_cmd_static_value_keeps_running(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo hello'),
+        )
+
+        prompt = process_prompt(template, 'test')
+
+        self.assertEqual(prompt, 'prompt hello')
 
 
 class TestProcessSystemPrompt(TestCase):
