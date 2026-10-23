@@ -128,6 +128,56 @@ The provider supports these generation parameters:
 
 `base_url` and `model` are required. Parameter support depends on the API and model server being used.
 
+A template can ground its answers in local notes with a `[memory]` table. It declares an embeddings
+endpoint (like `[provider]`) plus one named collection per `[memory.<name>]` table; each collection
+becomes a retrieval slot through the `{memory.<name>}` placeholders — lazy like `{cmd.*}`: the
+retrieval runs only when the placeholder is actually interpolated, and once per run:
+
+```toml
+[memory]
+base_url = 'http://localhost:8081/v1/embeddings'   # full endpoint URL, like [provider]
+model = 'nomic-embed-text'
+source = 'notes/notes.md'     # data file: literal path or glob, relative to the template file
+db = 'notes/memory.db'        # sqlite index; omitted, one is created next to the first source
+query = '{question}'          # default question for the collections (placeholders allowed)
+
+chunk_size = 1024             # maximum characters per chunk
+chunk_overlap = 128           # stride of shared characters between sliding windows
+batch_size = 16               # texts per /v1/embeddings request
+top_k = 4                     # chunks returned per retrieval
+max_chars = 2048              # injected context budget
+min_score = 0.0               # minimum relevance filter; 0 keeps it predictable
+
+[memory.extras]               # extra payload for the endpoint, like [provider.extras]
+
+[memory.notes]                # collection: an empty table inherits every [memory] setting
+```
+
+```markdown
+---
+Use the notes as ground truth.
+---
+Notes:
+{memory.notes}
+
+Answer the following question: {question}
+```
+
+How the retrieval works:
+
+- The notes are chunked preserving paragraphs: paragraphs that fit share one chunk (joined by a
+  newline), oversized ones are cut by a sliding window whose stride is
+  `chunk_size - chunk_overlap`.
+- The index is a local sqlite3 file gated by a fingerprint (sha256 of the sources plus the
+  chunking/model parameters). `ait run` itself rebuilds the index when the notes or the
+  parameters change — no separate update command needed.
+- The collection `query` interpolates the same slots as the prompts (`{question}`, `{0}`,
+  `{1}...`) before embedding, and the result places like a `Smart` value: `{memory.notes:strip}`
+  and `{memory.notes[:500]}` work like any other placeholder.
+- `[memory.<name>]` tables participate in `extends` inheritance like every other config table.
+- Point `base_url` at any OpenAI-compatible `/v1/embeddings` endpoint (llama.cpp server,
+  Ollama, LM Studio, ...). See [`examples/features/memory.md`](examples/features/memory.md).
+
 A template can inherit configuration, commands, and prompts from another template with a top-level `extends` key placed before any TOML table:
 
 ```toml

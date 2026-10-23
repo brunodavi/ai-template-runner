@@ -25,11 +25,13 @@ src/ai_template_runner/
 ├── cli.py            # argparse entrypoint: run -q -t; ties the pipeline together
 ├── processor.py      # parse, extends inheritance, interpolation, validation guard
 ├── command.py        # lazy shell commands behind {cmd.*} placeholders
+├── memory.py         # the [memory] engine: chunking, embeddings, sqlite index, retrieval
 ├── output.py         # the [out] engine: rendering, transforms, Smart wrapper
 ├── checks.py         # the [test] table: response validation
 ├── providers.py      # HTTP call to an OpenAI-compatible chat endpoint
 └── models/
     ├── provider.py   # dataclass of generation parameters
+    ├── memory.py     # dataclasses: embedder, collection settings, promoted memory
     └── template.py   # dataclass holding the fully-promoted template state
 ```
 
@@ -111,6 +113,31 @@ safe to use as build steps.
 llama.cpp/Ollama/LM Studio serve. llama.cpp-only sampling options travel in
 `[provider.extras]`, which avoids a growing zoo of first-class fields while
 keeping the common parameters explicit.
+
+### `[memory]` is a template-local RAG, gated by a fingerprint
+
+`memory.py` mirrors the `{cmd.*}` design: collections become lazy lookups that
+run only when a placeholder is interpolated, return `Smart` values, and the
+per-run session (`session()`) caches a collection so the system and user
+prompts share one retrieval. The engine is stdlib-only — embedding requests go
+through `providers.post_json`, cosine similarity is plain math and the index
+is sqlite3 — so the zero-dependency constraint survives.
+
+Two decisions matter:
+
+- **The index rebuilds itself by fingerprint, not by command.** The sqlite
+  file stores a sha256 of the sorted source bytes plus a canonical JSON of the
+  parameters that shape embeddings (`model`, `chunk_size`, `chunk_overlap`,
+  `extras`). A run whose fingerprint misses (new notes, edited notes, changed
+  chunking, different embedding model) re-embeds everything; a hit skips
+  straight to the query embedding. Retrieval-only settings (`top_k`,
+  `min_score`, `max_chars`, `batch_size`) deliberately stay out of it. This
+  is why no `ait memory` command is required to keep the index fresh.
+- **Bad memory configs fail at load time, before tokens are spent.**
+  `processor.py::process_template` promotes `[memory]` (required embedder
+  same way as `[provider]`, at least one collection, no unknown keys) and
+  resolves every collection source eagerly, so a missing data file is a
+  clear naming error on stderr instead of a half-rendered prompt.
 
 ## Testing conventions
 
