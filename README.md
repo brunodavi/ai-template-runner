@@ -117,6 +117,18 @@ The TOML block is parsed and removed from the prompt content. The optional syste
 
 `{0}` and every positional value are `Smart` strings, so pythonic slices and inline transforms work on them the same way they do inside `[out]`: `{0[1:]}`, `{question:strip}`, `{2[:8]}`, `{2:replace:old:new}`. The `{cmd.message}` placeholder executes the configured command and inserts its output into the prompt. Placeholders can be used in both the system and user prompts.
 
+The `[cmd]` values themselves also interpolate the run slots — interpolation is lazy (the slots fill in right before the subprocess runs, when the placeholder is evaluated) and raw, nothing quotes for you, so what reaches the shell is exactly what you word it:
+
+```toml
+[cmd]
+context = 'grep "{question}" notes.txt'
+logs = 'tail -n 20 {0[1:]} 2>&1 | head -50'
+```
+
+- The value supports positional slots, slices and transforms (`grep "{1}"`, `ls {0[1:]}`, `echo {question:strip}`) — same semantics as the prompts, with usage errors naming `[cmd] <name>` (`unknown placeholder ...`, `not enough args in [cmd] ...`).
+- Literal shell braces must be doubled (`awk '{{print $2}}'`): config values go through `str.format` like prompts.
+- Nothing quotes the interpolation for you — if the args come from someone else's command line, treat the value as shell code under their control and quote your command parts deliberately.
+
 The provider supports these generation parameters:
 
 - `temperature`, `top_p`, `top_k`, `min_p`: control sampling.

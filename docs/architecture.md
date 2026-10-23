@@ -25,6 +25,7 @@ src/ai_template_runner/
 ├── cli.py            # argparse entrypoint: run -q -t; ties the pipeline together
 ├── processor.py      # parse, extends inheritance, interpolation, validation guard
 ├── command.py        # lazy shell commands behind {cmd.*} placeholders
+├── slots.py          # run-slot interpolation shared by [memory] query and [cmd] values
 ├── memory.py         # the [memory] engine: chunking, embeddings, sqlite index, retrieval
 ├── output.py         # the [out] engine: rendering, transforms, Smart wrapper
 ├── checks.py         # the [test] table: response validation
@@ -91,6 +92,17 @@ The `{cmd.*}` values are also `Smart`, but lazy: `command.py` builds the
 subprocess result only when a field of the command is *actually used* in an
 interpolation. This is also why `{question}`-style transforms work everywhere —
 they are the same wrapper, not special cases.
+
+### One slot interpolator for every non-prompt text
+
+Prompts have their own `processor.interpolate` (they also resolve `{cmd.*}`
+and `{memory.*}`); every other text that carries run slots going through
+`slots.py::interpolate_slots` — the `[memory]` collection query (since 1.8.0)
+and the `[cmd]` values (since 1.9.0). The `[cmd]` interpolation is raw by
+design: the author words the quoting (`grep "{question}" notes.txt`), with the
+injection risk documented in the README against any convenience of automatic
+quoting. `command.py::CommandView` receives the run context from the format
+call itself, so the `Template` keeps no per-run state.
 
 ### Transforms and checks never share a namespace
 
