@@ -5,6 +5,7 @@ from tomllib import loads
 from .models.template import Template
 from .models.provider import Provider
 from .command import Command
+from .memory import build_memory, resolve_sources, session as memory_session
 from .output import build_out, number_out_headers, Smart
 
 TOML_FENCE = '```toml'
@@ -91,12 +92,12 @@ def merge_configs(parent: dict, child: dict) -> dict:
 def load_template(
     template_path: Path,
     _extends_stack: frozenset[Path] = frozenset(),
-) -> tuple[dict, dict, dict, dict, str, str]:
+) -> tuple[dict, dict, dict, dict, dict, str, str]:
     """Load a template file and resolve its `extends` chain.
 
     Returns (provider config, cmd config, test config, out config,
-    system prompt, user prompt). The `extends` path is resolved relative
-    to the template file itself; parent provider/cmd/test/out configs
+    memory config, system prompt, user prompt). The `extends` path is
+    resolved relative to the template file itself; parent config values
     are merged per key and parent prompts are used wherever the child
     prompts are empty.
     """
@@ -111,6 +112,7 @@ def load_template(
     cmd = dict(config.get('cmd', {}))
     test = dict(config.get('test', {}))
     out = build_out(config.get('out'))
+    memory = dict(config.get('memory') or {})
 
     system_prompt, user_prompt = split_prompts(content)
 
@@ -134,7 +136,7 @@ def load_template(
             _extends_stack | {parent_resolved},
         )
 
-        parent_provider, parent_cmd, parent_test, parent_out, parent_system, parent_user = (
+        parent_provider, parent_cmd, parent_test, parent_out, parent_memory, parent_system, parent_user = (
             parent
         )
 
@@ -142,15 +144,16 @@ def load_template(
         cmd = merge_configs(parent_cmd, cmd)
         test = merge_configs(parent_test, test)
         out = merge_configs(parent_out, out)
+        memory = merge_configs(parent_memory, memory)
 
         system_prompt = system_prompt or parent_system
         user_prompt = user_prompt or parent_user
 
-    return provider, cmd, test, out, system_prompt, user_prompt
+    return provider, cmd, test, out, memory, system_prompt, user_prompt
 
 
 def process_template(template_path: Path) -> Template:
-    provider_config, cmd_config, test_config, out_config, system_prompt, user_prompt = (
+    provider_config, cmd_config, test_config, out_config, memory_config, system_prompt, user_prompt = (
         load_template(template_path)
     )
 
@@ -159,6 +162,12 @@ def process_template(template_path: Path) -> Template:
              "Provider 'base_url' and 'model' are required"
         )
 
+    memory = build_memory(memory_config or None)
+
+    if memory is not None:
+        for collection in memory.collections.values():
+            resolve_sources(collection, template_path)
+
     return Template(
         user_prompt,
         system_prompt=system_prompt,
@@ -166,6 +175,7 @@ def process_template(template_path: Path) -> Template:
         cmd=Command(**cmd_config),
         test=test_config,
         out=out_config,
+        memory=memory,
     )
 
 
@@ -193,11 +203,13 @@ def interpolate(
             *[Smart(value) for value in slots],
             question=Smart(question) if isinstance(question, str) else question,
             cmd=template.cmd,
+            **({'memory': memory_session(template.memory, question, args, template_path)}
+               if template.memory is not None else {}),
         ).strip()
     except KeyError as error:
         raise ValueError(
             f'usage error: unknown placeholder "{error.args[0]}"'
-            ' (available: {question}, {0}, {1}, {2}... and {cmd.*})'
+            ' (available: {question}, {0}, {1}, {2}... and {cmd.*}, {memory.*})'
         ) from None
     except IndexError as error:
         match = re.search(r'Replacement index (\d+)', str(error))

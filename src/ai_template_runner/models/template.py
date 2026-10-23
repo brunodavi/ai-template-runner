@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from ..command import Command
+from ..memory import Memory
 from .provider import Provider
 
 @dataclass
@@ -11,3 +12,4 @@ class Template:
     cmd: Command = None
     test: dict = field(default_factory=dict)
     out: dict = field(default_factory=dict)
+    memory: Memory = None
