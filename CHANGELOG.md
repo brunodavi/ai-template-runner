@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2026-10-23
+
+### Added
+
+- `[memory]` template table: template-local retrieval (RAG) with zero new dependencies. The template declares an embeddings endpoint (`base_url` is the full `/v1/embeddings` URL and `model` is required, like `[provider]`; extra payload rides `[memory.extras]`) and one named collection per `[memory.<name>]` table. Each collection fills the `{memory.<name>}` placeholders — lazy like `{cmd.*}` and cached once per run — with the chunks closest to the query, which interpolates the same slots as the prompts (`{question}`, `{0}`, `{1}`, ...) and accepts Smart transforms on the result.
+- Notes chunking preserves paragraphs (those that fit share one chunk, joined by a newline); oversized paragraphs fall back to a sliding window with stride `chunk_size - chunk_overlap`. Retrieval returns up to `top_k` chunks (default 4) past the `min_score` filter (default 0.0), capped by the `max_chars` context budget (2048).
+- Self-refreshing sqlite index: the `db` file (or one next to the first source when omitted) stores chunk texts and float32 embeddings gated by a sha256 fingerprint of the sources plus the embeddings-relevant parameters (`model`, `chunk_size`, `chunk_overlap`, `extras`). `ait run` itself rebuilds the index when the notes or the setup change — no separate update command — while retrieval-only knobs (`top_k`, `min_score`, `max_chars`) never trigger a re-embed.
+- Load-time validation before tokens are spent: embedder `base_url`/`model` are required, unknown `[memory]`/collection keys are rejected, and every collection source must resolve (literal file or glob) at template load.
+- `examples/features/memory.md` and `examples/features/memory-notes.txt` demonstrating and pinning the behavior in `test/test_cli.py` (embeddings mocked two-stage in tests), plus the chunk-behavior evidence measured on real notes in the README.
+
 ## [1.7.0] - 2026-10-21
 
 ### Added
