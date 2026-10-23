@@ -203,7 +203,7 @@ def interpolate(
             *[Smart(value) for value in slots],
             question=Smart(question) if isinstance(question, str) else question,
             cmd=CommandView(template.cmd, question, args, template_path),
-            **({'memory': memory_session(template.memory, question, args, template_path)}
+            **({'memory': memory_session(template.memory, question, args, template_path, template.cmd)}
                if template.memory is not None else {}),
         ).strip()
     except KeyError as error:

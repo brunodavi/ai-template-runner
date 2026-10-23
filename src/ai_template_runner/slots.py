@@ -17,12 +17,15 @@ def interpolate_slots(
     args,
     template_path,
     where: str = '',
+    cmd=None,
 ) -> str:
     """Format text with the run slots; Smart values, same as prompts.
 
     `where` labels the config site in the error messages (e.g.
     'in [cmd] message' or 'in [memory.notes] query') so the usage error
-    points where the bad placeholder lives.
+    points where the bad placeholder lives. `cmd`, when given, is a
+    CommandView — so config texts like the [memory] query can run
+    {cmd.*} placeholders with the same run context.
     """
     path_value = (
         str(Path(template_path).resolve())
@@ -40,6 +43,7 @@ def interpolate_slots(
                 if isinstance(question, str)
                 else question
             ),
+            **({'cmd': cmd} if cmd is not None else {}),
         ).strip()
     except KeyError as error:
         raise ValueError(

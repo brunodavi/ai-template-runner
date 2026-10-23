@@ -20,6 +20,7 @@ import re
 import sqlite3
 
 from . import providers
+from .command import CommandView
 from .output import Smart
 from .slots import interpolate_slots
 from .models.memory import Memory, MemoryCollection, MemoryEmbedder
@@ -434,13 +435,14 @@ class MemorySession:
     the :spec transforms and [slice] work as anywhere else.
     """
 
-    def __init__(self, memory: Memory, question, args, template_path):
+    def __init__(self, memory: Memory, question, args, template_path, cmd=None):
         self._memory = memory
         self._question = question
         self._args = list(args or [])
         self._template_path = (
             Path(template_path).resolve() if template_path is not None else None
         )
+        self._command = cmd
         self._cache: dict[str, Smart] = {}
 
     def __getattr__(self, name: str) -> Smart:
@@ -527,17 +529,29 @@ class MemorySession:
         return CONTEXT_JOIN.join(parts)
 
     def _interpolate_query(self, collection: MemoryCollection) -> str:
+        cmd = None
+        if self._command is not None:
+            cmd = CommandView(
+                self._command, self._question, self._args, self._template_path
+            )
+
         return interpolate_slots(
             collection.query,
             self._question,
             self._args,
             self._template_path,
             where=f'in [memory.{collection.name}] query',
+            cmd=cmd,
         )
 
 
-def session(memory: Memory, question, args, template_path) -> MemorySession:
-    """One MemorySession per template run (same slots share the cache)."""
+def session(memory: Memory, question, args, template_path, cmd=None) -> MemorySession:
+    """One MemorySession per template run (same slots share the cache).
+
+    cmd is the template's Command storage, so the collection query can
+    resolve {cmd.*} placeholders — e.g. an English retrieval question
+    produced by a translate template (all-MiniLM is English-only).
+    """
     key = (
         question,
         tuple(args or []),
@@ -545,6 +559,8 @@ def session(memory: Memory, question, args, template_path) -> MemorySession:
     )
 
     if key not in memory.sessions:
-        memory.sessions[key] = MemorySession(memory, question, args, template_path)
+        memory.sessions[key] = MemorySession(
+            memory, question, args, template_path, cmd
+        )
 
     return memory.sessions[key]
