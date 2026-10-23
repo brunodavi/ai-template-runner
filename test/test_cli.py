@@ -129,6 +129,31 @@ class TestCli(TestCase):
         self.assertIn('TESTING', output_str)
 
     @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_command_path(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        output = StringIO()
+
+        template = get_template('command-path')
+        question = 'Test'
+
+        with redirect_stdout(output):
+            cli(['run', template, question])
+
+        output_str = output.getvalue()
+
+        # the value derived the sibling data file through the {0} slot
+        # wrapped in $(dirname ...): the command itself never leaks
+        self.assertNotIn('dirname', output_str)
+        self.assertIn('alpha context line', output_str)
+        self.assertIn('bravo context line', output_str)
+        self.assertIn(question, output_str)
+        self.assertIn('TESTING', output_str)
+
+    @patch('src.ai_template_runner.providers.post_json')
     def test_cli_run_with_template_extras(
         self,
         mock_post_json: MagicMock,
