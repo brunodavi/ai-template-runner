@@ -357,7 +357,12 @@ def resolve_sources(
     if base.is_file():
         sources = [base]
     elif any(char in pattern for char in '*?['):
-        sources = [Path(match) for match in glob(str(base), recursive=True)]
+        # os.scandir does not guarantee order: sort the matches so the
+        # chunk order (and the tie-breaks) stay deterministic per glob
+        sources = sorted(
+            (Path(match) for match in glob(str(base), recursive=True)),
+            key=str,
+        )
     else:
         sources = []
 
