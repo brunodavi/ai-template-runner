@@ -320,6 +320,27 @@ class TestCli(TestCase):
         self.assertIn('one', content)
         self.assertIn('two', content)
 
+    @patch('src.ai_template_runner.providers.post_json')
+    def test_cli_run_with_template_slots_repr(
+        self,
+        mock_post_json: MagicMock,
+    ):
+        mock_post_json.return_value = make_post_json()
+
+        template = get_template('slots-repr')
+        question = 'My Question'
+
+        with redirect_stdout(StringIO()):
+            cli(['run', template, question])
+
+        # repr quotes are in the prompt...
+        content = mock_post_json.call_args.args[1]['messages'][1]['content']
+        self.assertIn("The question is wrapped in repr quotes: 'My Question'", content)
+
+        # ...the same argument feeds a [cmd] value in two styles: a
+        # plain :spec transform and the !r conversion (which the shell
+        # consumes when the command prints)
+        self.assertIn('MY QUESTION -- My Question', content)
 
 
 class TestCliRunWithTests(TestCase):

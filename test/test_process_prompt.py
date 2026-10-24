@@ -280,3 +280,59 @@ class TestProcessSystemPrompt(TestCase):
         system_prompt = process_system_prompt(template, 'test')
 
         self.assertEqual(system_prompt, '')
+
+
+class TestReprConversions(TestCase):
+    """Python format conversions ({value!r}, !s, !a) work with every
+    slot natively: they run at the format machinery level.
+    repr() adds quotes — handy for [cmd] values that need a quoted
+    argument (the shell consumes them again when the command prints)."""
+
+    def test_prompt_with_repr_question(self):
+        template = Template('ask {question!r}')
+
+        prompt = process_prompt(template, "it's me")
+
+        self.assertEqual(prompt, 'ask "it\'s me"')
+
+    def test_prompt_with_repr_positional(self):
+        template = Template('ask {1!r}')
+
+        prompt = process_prompt(template, 'test')
+
+        self.assertEqual(prompt, "ask 'test'")
+
+    def test_prompt_with_conversion_after_slice(self):
+        template = Template('ask {1[0]!r}')
+
+        prompt = process_prompt(template, 'ab')
+
+        self.assertEqual(prompt, "ask 'a'")
+
+    def test_prompt_with_ascii_and_str_conversions(self):
+        template = Template('ask {question!s} {question!a}')
+
+        prompt = process_prompt(template, 'é')
+
+        self.assertEqual(prompt, "ask é '\\xe9'")
+
+    def test_prompt_with_repr_in_cmd_value(self):
+        template = Template(
+            'prompt {cmd.message}',
+            cmd=Command(message='echo {1!r}'),
+        )
+
+        prompt = process_prompt(template, 'test')
+
+        # the shell consumes the repr quotes when the echoes print
+        self.assertEqual(prompt, 'prompt test')
+
+    def test_prompt_with_repr_over_cmd_result(self):
+        template = Template(
+            'prompt {cmd.message!r}',
+            cmd=Command(message='echo hello'),
+        )
+
+        prompt = process_prompt(template)
+
+        self.assertEqual(prompt, "prompt 'hello'")

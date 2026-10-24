@@ -237,3 +237,19 @@ class TestRenderOut(TestCase):
             render_out({'steps': [('banana', {})]}, 'raw')
 
         self.assertIn('banana', str(ctx.exception))
+
+    def test_inline_repr_over_json_field(self):
+        rendered = render_out(
+            {'text': '{out.type!r}'},
+            '{"type": "feat"}',
+        )
+
+        self.assertEqual(rendered, "'feat'")
+
+    def test_inline_conversion_after_slice(self):
+        rendered = render_out(
+            {'text': '{out.message[0]!r}'},
+            '{"message": "abc"}',
+        )
+
+        self.assertEqual(rendered, "'a'")
