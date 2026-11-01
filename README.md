@@ -4,7 +4,7 @@ Small local models are cheap and fast — they also lose structure the moment a 
 
 A template is one file with a TOML section (model, endpoint, sampling), an optional system prompt, the user prompt (with `{cmd.*}` command output and `{question}` input slots), and optional `[test]` / `[out]` tables to validate and render the answer.
 
-One file, one command, one predictable answer — no agent framework needed.
+One file per task, one command to run it, validation through `--test` — no agent framework needed.
 
 **Why it matters:** a small model cannot keep a workflow in its head, but it can fill in a well-shaped slot. Templates put the workflow in the file so the model only has to do the part it is good at. Failures become visible and reproducible through `[test]`, instead of vague "the model is dumb" sessions.
 
@@ -33,6 +33,12 @@ git clone https://github.com/brunodavi/ai-template-runner.git
 cd ai-template-runner
 uvx ai-template-runner run examples/simulation/conventional-commits/feat.md --test
 ```
+
+The simulation children extend the task template and rewrite the prompts with
+fixture text in place of the `{cmd.*}` placeholders. Because `[cmd]` values are
+lazy — a command runs only when a `{cmd.*}` placeholder is actually
+interpolated — the inherited `git status`/`git diff` commands never execute in
+a simulation, and no model server is needed at all.
 
 Running on a phone? See [`docs/termux.md`](docs/termux.md).
 
@@ -65,7 +71,7 @@ ait run --help
 - `-t` / `--test`: validate the response against the template's `[test]` table. PASS/FAIL lines go to stderr and the exit code is 1 when any check fails.
 - `--fail-fast`: with a batch and `--test`, stop at the first template with a FAIL.
 
-The template argument is always resolved the same way: an existing file is used directly (absolute or relative), and anything else is matched as a glob pattern relative to the current directory (`**` recursion works). A batch runs every match in sorted order; files that do not start with the ` ```toml ` configuration block are skipped with a warning on stderr. One resolved file that is not a template is a usage error.
+The template argument is always resolved the same way: an existing file is used directly (absolute or relative), and anything else is matched as a glob pattern relative to the current directory (`**` recursion works). A batch runs every match in sorted order; files that do not start with the ` ```toml ` configuration block are skipped with a warning on stderr (suppressed under `-q`). One resolved file that is not a template is a usage error.
 
 ## Templates
 
@@ -249,6 +255,8 @@ ait run "examples/**/*.md" --test    # batch: aggregated exit code over every te
 
 PASS/FAIL lines go to stderr (stdout stays clean for pipes) and the exit code is 1 when any check fails. Missing JSON fields and invalid JSON output fail instead of raising. The `[test]` table participates in `extends` inheritance like the other config tables.
 
+The checks run `json.loads` on the **raw model response**, as-is: a ```` ```json ```` fence or any prose around the object fails every JSON check at once. Pair JSON checks with `response_format = { type = "json_object" }` in `[provider.extras]` (see [`examples/features/json-object.md`](examples/features/json-object.md)) so the model server enforces the shape. With small models, part of the observed reliability comes from that server-side contract rather than from the prompt itself — treat the pairing as part of the template, not an optional extra.
+
 A template can also render its own display output with an `[out]` table. The `text` key is a render template formatted with the parsed JSON fields (`{out.type}`, `{out.message}`, ...); missing fields render as empty:
 
 ```toml
@@ -314,5 +322,7 @@ Contributions are welcome — CI runs the suite on Python 3.12, 3.13 and 3.14, s
 ## Status
 
 AIT is in active development for local AI experimentation and lightweight, template-driven workflows. Expect the template syntax to be stable and everything around it to keep evolving. See [`CHANGELOG.md`](CHANGELOG.md) for release history.
+
+One honest caveat: the core idea — moving structure (context, output contract, validation) outside the model to make small-model workflows more predictable — is a working hypothesis. [`docs/benchmarks.md`](docs/benchmarks.md) documents model capacity, not an experimental validation of the approach; no benchmark for that distinction exists yet.
 
 Licensed under the [MIT license](LICENSE).

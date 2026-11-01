@@ -12,6 +12,21 @@ Model names are the ones llama.cpp itself reports (the `model` column of
 categories (logic, patterns, instruction following, robustness, abstention,
 classification, extraction, JSON).
 
+## What this does and does not measure
+
+This benchmark measures **model capacity**: which small models run well on this
+device and which ones handle template-shaped tasks. It is useful as a *model
+recommendation* when picking a GGUF for `ait` on local hardware.
+
+It does **not** measure the effect of the tool itself. There is no experiment
+here comparing the same model with and without the template scaffolding
+(context injection, output contract, `[test]`), so this document is not
+evidence that AIT's approach improves reliability — that claim remains a
+working hypothesis until a benchmark for it is defined. What exists today: the
+premise that small models lose structure as prompts grow is *consistent* with
+these scores (Extraction/JSON survive in 230M-class models; Logic collapses
+below 1B), but consistency is not validation.
+
 ## Ranking
 
 | Position | Model | Score | Accuracy | Latency/test | tok/s |
@@ -40,7 +55,8 @@ Model sizes for the same set:
 
 ## What this means for template design
 
-The numbers confirm the premise this tool is built on — **small models fail
+The numbers are consistent with the premise this tool is built on — **small
+models fail
 not because they are slow, but because they lose structure** — and they show
 directly which models reproduce on which template shape:
 
